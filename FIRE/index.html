@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>退休規劃問卷</title>
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --bg-color: #F5F7FA;
+            --card-bg: #FFFFFF;
+            --text-color: #333333;
+            --border-color: #E1E4E8;
+        }
+        body {
+            font-family: "Helvetica Neue", Helvetica, Arial, "PingFang TC", "微軟正黑體", sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+        }
+        .category {
+            background-color: #f9fbff;
+            border-left: 4px solid var(--primary-color);
+            padding: 15px;
+            margin: 20px 0 10px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        .category h2 {
+            margin: 0 0 10px 0;
+            font-size: 1.2em;
+            color: #2c3e50;
+        }
+        .question {
+            margin-bottom: 20px;
+            padding: 10px 0;
+            border-bottom: 1px dashed var(--border-color);
+        }
+        .question:last-child {
+            border-bottom: none;
+        }
+        .question p {
+            font-weight: bold;
+            margin: 0 0 10px 0;
+        }
+        label {
+            display: inline-block;
+            margin-right: 15px;
+            margin-bottom: 8px;
+            cursor: pointer;
+        }
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            max-width: 150px;
+            padding: 8px;
+            margin-top: 5px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .inline-inputs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+        .inline-inputs > div {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .children-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #ced4da;
+        }
+        .child-input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.85em;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: auto !important;
+            margin: 0 !important;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+        }
+        
+        button[type="submit"] {
+            display: block;
+            width: 100%;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 15px;
+            font-size: 1.2em;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 30px;
+            transition: background 0.3s;
+        }
+        button[type="submit"]:hover {
+            background-color: #357ABD;
+        }
+        #resultArea {
+            display: none;
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #e8f4f8;
+            border-radius: 8px;
+            border: 1px solid #bce0ee;
+        }
+        .result-category {
+            margin-bottom: 15px;
+            background: #ffffff;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .result-category h3 {
+            margin: 0 0 10px 0;
+            color: #0056b3;
+            border-bottom: 1px solid #e1e4e8;
+            padding-bottom: 5px;
+        }
+        .highlight-calc {
+            color: #d35400;
+            font-weight: bold;
+        }
+        .gap-alert {
+            color: #e74c3c;
+            font-weight: bold;
+            font-size: 1.1em;
+            background: #fdf5f5;
+            padding: 5px 10px;
+            border-radius: 4px;
+            border-left: 4px solid #e74c3c;
+            display: inline-block;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 600px) {
+            .container { padding: 15px; }
+            label { display: inline-block; margin-bottom: 5px; }
+            .inline-inputs { flex-direction: column; align-items: flex-start; gap: 10px; }
+            input[type="text"], input[type="number"] { max-width: 100%; }
+            .child-input-group { width: 100%; }
+            .child-input-group input { flex-grow: 1; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>退休規劃問卷</h1>
+    <form id="retirementForm">
+        
+        <div class="category">
+            <h2>規劃一：退休時程與現況</h2>
+            <div class="question">
+                <p>1. 您的生命週期規劃：</p>
+                <div class="inline-inputs">
+                    <div><label>現在的我</label><input type="number" name="q1_current" placeholder="歲"></div>
+                    <div><label>預計退休</label><input type="number" name="q1_retire" placeholder="歲"></div>
+                    <div><label>長壽生命</label><input type="number" name="q1_longevity" placeholder="歲"></div>
+                </div>
+                
+                <div class="children-section">
+                    <p style="font-size: 0.95em; margin-bottom: 5px;">子女年齡填寫：</p>
+                    <div id="childrenContainer">
+                    </div>
+                    <button type="button" id="addChildBtn" class="btn-small">➕ 新增子女</button>
+                </div>
+                
+                <small style="color: #666; display: block; margin-top: 15px;">*參考：平均餘命82歲(女)</small>
+            </div>
+        </div>
+
+        <div class="category">
+            <h2>規劃二：理財現況與能力</h2>
+            <div class="question">
+                <p>2. 您喜歡選擇哪些方法來做退休準備？(可複選)</p>
+                <label><input type="checkbox" name="q2" value="銀行存款"> 銀行存款</label>
+                <label><input type="checkbox" name="q2" value="外幣存款"> 外幣存款</label>
+                <label><input type="checkbox" name="q2" value="標會"> 標會</label>
+                <label><input type="checkbox" name="q2" value="保險"> 保險</label>
+                <label><input type="checkbox" name="q2" value="理財"> 理財</label>
+                <label><input type="checkbox" name="q2" value="股票基金"> 股票基金</label>
+                <label><input type="checkbox" name="q2" value="其他"> 其他</label>
+            </div>
+            
+            <div class="question">
+                <p>3. 對規劃退休生活費來源，您認為最有保障的退休收入是？(可複選)</p>
+                <label><input type="checkbox" name="q3" value="政府的老人年金"> 政府的老人年金</label>
+                <label><input type="checkbox" name="q3" value="社會團體的支援"> 社會團體的支援</label>
+                <label><input type="checkbox" name="q3" value="子女的奉養"> 子女的奉養</label>
+                <label><input type="checkbox" name="q3" value="自己規劃的退休金"> 自己規劃的退休金</label>
+            </div>
+
+            <div class="question">
+                <p>8. 依您目前的經濟能力，您每月可提撥多少用來儲蓄或投資？</p>
+                <label><input type="radio" name="q8" value="5,000元"> 5,000元</label>
+                <label><input type="radio" name="q8" value="10,000元"> 10,000元</label>
+                <label><input type="radio" name="q8" value="20,000元"> 20,000元</label>
+                <label><input type="radio" name="q8" value="30,000元"> 30,000元</label>
+                <label><input type="radio" name="q8" value="50,000元以上"> 50,000元以上</label>
+            </div>
+        </div>
+
+        <div class="category">
+            <h2>規劃三：退休生活與缺口目標</h2>
+            <div class="question">
+                <p>4. 請問您退休後想做哪些事？(可複選)</p>
+                <label><input type="checkbox" name="q4" value="環遊世界"> 環遊世界</label>
+                <label><input type="checkbox" name="q4" value="學習新知"> 學習新知</label>
+                <label><input type="checkbox" name="q4" value="公益活動"> 公益活動</label>
+                <label><input type="checkbox" name="q4" value="發展事業第二春"> 發展事業第二春</label>
+                <label><input type="checkbox" name="q4" value="含飴弄孫"> 含飴弄孫</label>
+                <label><input type="checkbox" name="q4" value="協助子女成家立業"> 協助子女成家立業</label>
+                <label><input type="checkbox" name="q4" value="其他"> 其他</label>
+            </div>
+
+            <div class="question">
+                <p>5. 理財專家報導，退休後到底要準備多少退休金才夠用，您選擇？</p>
+                <label><input type="radio" name="q5" value="500萬元"> 500萬元</label>
+                <label><input type="radio" name="q5" value="700萬元"> 700萬元</label>
+                <label><input type="radio" name="q5" value="1000萬元"> 1000萬元</label>
+                <label><input type="radio" name="q5" value="1500萬元"> 1500萬元</label>
+                <label><input type="radio" name="q5" value="3000萬元"> 3000萬元</label>
+                <label><input type="radio" name="q5" value="4200萬元"> 4200萬元</label>
+                <label><input type="radio" name="q5" value="其他"> 其他</label>
+            </div>
+
+            <div class="question">
+                <p>6. 您希望退休後每個月的生活費是多少？</p>
+                <label><input type="radio" name="q6" value="2萬元"> 2萬元</label>
+                <label><input type="radio" name="q6" value="3萬元"> 3萬元</label>
+                <label><input type="radio" name="q6" value="4萬元"> 4萬元</label>
+                <label><input type="radio" name="q6" value="5萬元"> 5萬元</label>
+                <label><input type="radio" name="q6" value="8萬元"> 8萬元</label>
+                <label><input type="radio" name="q6" value="12萬元"> 12萬元</label>
+                <label><input type="radio" name="q6" value="其他金額"> 其他金額</label>
+            </div>
+        </div>
+
+        <div class="category">
+            <h2>規劃四：風險評估與顧問服務</h2>
+            <div class="question">
+                <p>7. 您希望了解的金融資訊有哪些？(可複選)</p>
+                <label><input type="checkbox" name="q7" value="個人儲蓄"> 個人儲蓄</label>
+                <label><input type="checkbox" name="q7" value="投資理財"> 投資理財</label>
+                <label><input type="checkbox" name="q7" value="節稅資訊"> 節稅資訊</label>
+                <label><input type="checkbox" name="q7" value="退休理財規劃"> 退休理財規劃</label>
+                <label><input type="checkbox" name="q7" value="房貸理財計劃"> 房貸理財計劃</label>
+            </div>
+
+            <div class="question">
+                <p>9. 您認為會影響您準備退休金的因素有哪些？(可複選)</p>
+                <label><input type="checkbox" name="q9" value="壽命延長"> 壽命延長</label>
+                <label><input type="checkbox" name="q9" value="失業率高"> 失業率高</label>
+                <label><input type="checkbox" name="q9" value="稅賦負擔"> 稅賦負擔</label>
+                <label><input type="checkbox" name="q9" value="少子化"> 少子化</label>
+                <label><input type="checkbox" name="q9" value="離婚率高"> 離婚率高</label>
+                <label><input type="checkbox" name="q9" value="存款利率低"> 存款利率低</label>
+                <label><input type="checkbox" name="q9" value="投資風險高"> 投資風險高</label>
+                <label><input type="checkbox" name="q9" value="生活費用高"> 生活費用高</label>
+                <label><input type="checkbox" name="q9" value="醫療費用增加"> 醫療費用增加</label>
+                <label><input type="checkbox" name="q9" value="社會福利不足"> 社會福利不足</label>
+            </div>
+
+            <div class="question">
+                <p>10. 我們將提供一份專屬您的退休規劃的資訊給您參考運用？</p>
+                <label><input type="radio" name="q10" value="好"> 好，同意提供</label>
+                <label><input type="radio" name="q10" value="不好"> 不好，暫不需要</label>
+            </div>
+        </div>
+
+        <button type="submit">完成填寫並檢視歸類結果</button>
+    </form>
+
+    <div id="resultArea">
+        <h2>📊 您的退休規劃分析歸類</h2>
+        <div id="resultContent"></div>
+    </div>
+</div>
+
+<script>
+    let childCount = 0;
+
+    document.getElementById('addChildBtn').addEventListener('click', function() {
+        childCount++;
+        const container = document.getElementById('childrenContainer');
+        
+        const childGroup = document.createElement('div');
+        childGroup.className = 'child-input-group';
+        childGroup.innerHTML = `
+            <label class="child-label">第 ${childCount} 位子女：</label>
+            <input type="number" name="q1_children_age" placeholder="歲" min="0" max="120">
+            <button type="button" class="btn-small btn-danger remove-child-btn">刪除</button>
+        `;
+        
+        container.appendChild(childGroup);
+
+        childGroup.querySelector('.remove-child-btn').addEventListener('click', function() {
+            childGroup.remove();
+            reindexChildren();
+        });
+    });
+
+    function reindexChildren() {
+        const groups = document.querySelectorAll('.child-input-group');
+        childCount = groups.length;
+        groups.forEach((group, index) => {
+            group.querySelector('.child-label').innerText = `第 ${index + 1} 位子女：`;
+        });
+    }
+
+    document.getElementById('retirementForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        
+        function getCheckedValues(name) {
+            return formData.getAll(name).length > 0 ? formData.getAll(name).join('、') : '未選擇';
+        }
+        
+        function getSingleValue(name, suffix = '') {
+            let val = formData.get(name);
+            return val ? val + suffix : '未填寫/未選擇';
+        }
+
+        // 子女年齡統整
+        const childAgeInputs = document.querySelectorAll('input[name="q1_children_age"]');
+        let childrenSummary = '未填寫';
+        if (childAgeInputs.length > 0) {
+            let ages = [];
+            childAgeInputs.forEach((input, index) => {
+                let ageVal = input.value ? input.value + ' 歲' : '未填年齡';
+                ages.push(`第 ${index + 1} 位：${ageVal}`);
+            });
+            childrenSummary = ages.join('、');
+        }
+
+        // ================= 計算邏輯開始 =================
+        let yearsNeeded = 0;
+        let annualExpense = 0;
+
+        // 1. 準備年數計算
+        let currentAge = parseInt(formData.get('q1_current'));
+        let retireAge = parseInt(formData.get('q1_retire'));
+        let longevityAge = parseInt(formData.get('q1_longevity'));
+        
+        let yearsCalculationHtml = "";
+        if (!isNaN(longevityAge)) {
+            let baseAge = !isNaN(retireAge) ? retireAge : (!isNaN(currentAge) ? currentAge : 0);
+            if (baseAge > 0 && longevityAge > baseAge) {
+                yearsNeeded = longevityAge - baseAge;
+                let ageLabel = !isNaN(retireAge) ? "預計退休" : "目前年齡";
+                yearsCalculationHtml = `<li><span class="highlight-calc">需準備退休費用的年數：${yearsNeeded} 年</span> (預估壽命 ${longevityAge} 歲 - ${ageLabel} ${baseAge} 歲)</li>`;
+            } else if (!isNaN(currentAge) && longevityAge > currentAge) {
+                yearsNeeded = longevityAge - currentAge;
+                yearsCalculationHtml = `<li><span class="highlight-calc">需準備退休費用的年數：${yearsNeeded} 年</span> (預估壽命 ${longevityAge} 歲 - 目前年齡 ${currentAge} 歲)</li>`;
+            }
+        }
+
+        // 2. 年生活費計算
+        let q6Val = formData.get('q6');
+        let q6Display = getSingleValue('q6');
+        let annualExpenseHtml = "";
+        
+        if (q6Val && q6Val.includes("萬元")) {
+            let monthly = parseInt(q6Val);
+            if (!isNaN(monthly)) {
+                annualExpense = monthly * 12;
+                annualExpenseHtml = ` <span class="highlight-calc">（換算一年需 ${annualExpense} 萬元）</span>`;
+            }
+        }
+
+        // 3. 資金缺口總額計算
+        let totalGapHtml = "";
+        if (yearsNeeded > 0 && annualExpense > 0) {
+            let totalGap = yearsNeeded * annualExpense;
+            totalGapHtml = `<li><div class="gap-alert">預估總資金缺口：${totalGap} 萬元</div><br><small style="color:#666;">(計算方式：一年 ${annualExpense} 萬 × 準備年數 ${yearsNeeded} 年)</small></li>`;
+        }
+
+        // ================= 計算邏輯結束 =================
+
+        const htmlOutput = `
+            <div class="result-category">
+                <h3>一、退休時程與現況分析</h3>
+                <ul>
+                    <li>目前年齡：${getSingleValue('q1_current', ' 歲')}</li>
+                    <li>預計退休：${getSingleValue('q1_retire', ' 歲')}</li>
+                    <li>預估壽命：${getSingleValue('q1_longevity', ' 歲')}</li>
+                    ${yearsCalculationHtml}
+                    <li>子女狀況：${childrenSummary}</li>
+                </ul>
+            </div>
+            
+            <div class="result-category">
+                <h3>二、理財現況與能力評估</h3>
+                <ul>
+                    <li>目前的準備方式：${getCheckedValues('q2')}</li>
+                    <li>認定的保障來源：${getCheckedValues('q3')}</li>
+                    <li>每月可提撥金額：${getSingleValue('q8')}</li>
+                </ul>
+            </div>
+
+            <div class="result-category">
+                <h3>三、退休願景與目標資金</h3>
+                <ul>
+                    <li>退休後想做的事：${getCheckedValues('q4')}</li>
+                    <li>預估需要退休金總額：${getSingleValue('q5')}</li>
+                    <li>期望每月生活費：${q6Display}${annualExpenseHtml}</li>
+                    ${totalGapHtml}
+                </ul>
+            </div>
+
+            <div class="result-category">
+                <h3>四、風險評估與後續規劃</h3>
+                <ul>
+                    <li>認為影響準備的風險：${getCheckedValues('q9')}</li>
+                    <li>希望了解的金融資訊：${getCheckedValues('q7')}</li>
+                    <li>是否願意接收專屬規劃報告：${getSingleValue('q10')}</li>
+                </ul>
+            </div>
+        `;
+
+        const resultArea = document.getElementById('resultArea');
+        document.getElementById('resultContent').innerHTML = htmlOutput;
+        resultArea.style.display = 'block';
+        
+        resultArea.scrollIntoView({ behavior: 'smooth' });
+    });
+</script>
+</body>
+</html>
