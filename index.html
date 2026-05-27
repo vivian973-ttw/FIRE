@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>退休規劃問卷</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         :root {
             --primary-color: #4A90E2;
@@ -27,6 +28,7 @@
             padding: 30px;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            position: relative;
         }
         h1 {
             text-align: center;
@@ -34,6 +36,65 @@
             border-bottom: 2px solid var(--primary-color);
             padding-bottom: 10px;
         }
+        
+        /* 歷史紀錄管理介面 */
+        .header-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 15px;
+        }
+        .btn-outline {
+            padding: 8px 15px;
+            font-size: 0.9em;
+            background-color: white;
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-outline:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        #historyArea {
+            display: none;
+            background: #fdfdfd;
+            border: 1px solid #dcdcdc;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .batch-control-bar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 10px;
+        }
+        #historyList {
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        .history-item {
+            padding: 10px;
+            border-bottom: 1px dashed #ccc;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        .history-item button {
+            width: auto;
+            margin: 0;
+            padding: 5px 12px;
+            font-size: 0.85em;
+        }
+
         .category {
             background-color: #f9fbff;
             border-left: 4px solid var(--primary-color);
@@ -111,7 +172,7 @@
             background-color: #dc3545;
         }
         
-        button[type="submit"] {
+        button[type="submit"], .btn-pdf {
             display: block;
             width: 100%;
             background-color: var(--primary-color);
@@ -124,9 +185,17 @@
             margin-top: 30px;
             transition: background 0.3s;
         }
-        button[type="submit"]:hover {
+        button[type="submit"]:hover, .btn-pdf:hover {
             background-color: #357ABD;
         }
+        .btn-pdf {
+            background-color: #27ae60;
+            margin-top: 15px;
+        }
+        .btn-pdf:hover {
+            background-color: #219653;
+        }
+        
         #resultArea {
             display: none;
             margin-top: 30px;
@@ -135,12 +204,27 @@
             border-radius: 8px;
             border: 1px solid #bce0ee;
         }
+        
+        /* PDF 專用區塊 */
+        #pdfContent {
+            padding: 20px;
+            background: #ffffff;
+        }
+        #pdfContent h2 {
+            text-align: center;
+            color: #2c3e50;
+            border-bottom: 2px solid #4A90E2;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
         .result-category {
             margin-bottom: 15px;
             background: #ffffff;
             padding: 15px;
             border-radius: 5px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            border: 1px solid #eee;
         }
         .result-category h3 {
             margin: 0 0 10px 0;
@@ -177,6 +261,21 @@
 <body>
 
 <div class="container">
+    
+    <div class="header-actions">
+        <button type="button" id="toggleHistoryBtn" class="btn-outline">🕒 查看歷史紀錄</button>
+    </div>
+    
+    <div id="historyArea">
+        <h3 style="margin-top:0;">📂 已儲存的規劃紀錄管理</h3>
+        <div class="batch-control-bar">
+            <label><input type="checkbox" id="selectAllHistory"> 全選</label>
+            <button type="button" id="batchDownloadBtn" class="btn-small" style="background-color: #27ae60;">📥 批次下載所選 PDF</button>
+            <button type="button" id="batchDeleteBtn" class="btn-small btn-danger">🗑️ 刪除所選</button>
+        </div>
+        <div id="historyList">目前沒有紀錄。</div>
+    </div>
+
     <h1>退休規劃問卷</h1>
     <form id="retirementForm">
         
@@ -300,22 +399,26 @@
             </div>
         </div>
 
-        <button type="submit">完成填寫並檢視歸類結果</button>
+        <button type="submit">完成填寫並產生報告</button>
     </form>
 
     <div id="resultArea">
-        <h2>📊 您的退休規劃分析歸類</h2>
-        <div id="resultContent"></div>
+        <div id="pdfContent">
+            <h2>📊 專屬退休規劃分析報告</h2>
+            <p style="text-align:right; color:#7f8c8d; font-size:0.9em;" id="reportDate"></p>
+            <div id="resultContent"></div>
+        </div>
+        <button type="button" class="btn-pdf" id="downloadPdfBtn">📥 下載此報告為 PDF</button>
     </div>
 </div>
 
 <script>
+    // --- 1. 子女動態增減邏輯 ---
     let childCount = 0;
 
     document.getElementById('addChildBtn').addEventListener('click', function() {
         childCount++;
         const container = document.getElementById('childrenContainer');
-        
         const childGroup = document.createElement('div');
         childGroup.className = 'child-input-group';
         childGroup.innerHTML = `
@@ -323,7 +426,6 @@
             <input type="number" name="q1_children_age" placeholder="歲" min="0" max="120">
             <button type="button" class="btn-small btn-danger remove-child-btn">刪除</button>
         `;
-        
         container.appendChild(childGroup);
 
         childGroup.querySelector('.remove-child-btn').addEventListener('click', function() {
@@ -340,6 +442,152 @@
         });
     }
 
+    // --- 2. 歷史紀錄載入系統 (含批次核取方塊) ---
+    function loadHistory() {
+        const historyList = document.getElementById('historyList');
+        let records = JSON.parse(localStorage.getItem('retirementRecords')) || [];
+        
+        if(records.length === 0) {
+            historyList.innerHTML = "目前沒有紀錄。";
+            document.getElementById('selectAllHistory').checked = false;
+            return;
+        }
+
+        historyList.innerHTML = "";
+        // 依據原始陣列索引渲染（讓最新產生的出現在列表最上方）
+        records.forEach((record, originalIndex) => {
+            const item = document.createElement('div');
+            item.className = 'history-item';
+            
+            item.innerHTML = `
+                <input type="checkbox" class="history-checkbox" value="${originalIndex}">
+                <div style="flex-grow: 1;">
+                    <strong>📝 規劃日期：</strong> ${record.date} <br>
+                    <small>總缺口估計：${record.gapSummary}</small>
+                </div>
+                <button type="button" class="btn-outline" onclick="viewHistory(${originalIndex})">查看</button>
+            `;
+            // 最新建立的插入到最前面
+            if (historyList.firstChild) {
+                historyList.insertBefore(item, historyList.firstChild);
+            } else {
+                historyList.appendChild(item);
+            }
+        });
+        
+        // 重設「全選」狀態為未選
+        document.getElementById('selectAllHistory').checked = false;
+    }
+
+    // 開關歷史面板
+    document.getElementById('toggleHistoryBtn').addEventListener('click', function() {
+        const area = document.getElementById('historyArea');
+        if (area.style.display === 'none' || area.style.display === '') {
+            area.style.display = 'block';
+            loadHistory();
+        } else {
+            area.style.display = 'none';
+        }
+    });
+
+    // 「全選 / 全不選」控制
+    document.getElementById('selectAllHistory').addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.history-checkbox');
+        checkboxes.forEach(cb => cb.checked = this.checked);
+    });
+
+    // 查看單筆紀錄
+    window.viewHistory = function(index) {
+        let records = JSON.parse(localStorage.getItem('retirementRecords')) || [];
+        const record = records[index];
+        if(record) {
+            document.getElementById('reportDate').innerText = "產生時間：" + record.date;
+            document.getElementById('resultContent').innerHTML = record.htmlContent;
+            document.getElementById('resultArea').style.display = 'block';
+            document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth' });
+        }
+    };
+
+    // --- 3. 核心功能：批次下載 PDF 邏輯 ---
+    document.getElementById('batchDownloadBtn').addEventListener('click', async function() {
+        const checkedBoxes = document.querySelectorAll('.history-checkbox:checked');
+        if (checkedBoxes.length === 0) {
+            alert('請至少勾選一筆紀錄進行下載！');
+            return;
+        }
+        
+        let records = JSON.parse(localStorage.getItem('retirementRecords')) || [];
+        this.innerText = "⏳ 批次下載中...";
+        this.disabled = true;
+
+        // 利用 async/await 迴圈序列化生成，防止瀏覽器同時發送多檔下載而被封鎖
+        for (let cb of checkedBoxes) {
+            let index = parseInt(cb.value);
+            let record = records[index];
+            if (!record) continue;
+
+            // 建立暫時性的隱藏 DOM 容器包裹內容
+            let tempContainer = document.createElement('div');
+            tempContainer.style.padding = '20px';
+            tempContainer.style.background = '#ffffff';
+            tempContainer.innerHTML = `
+                <h2 style="text-align:center;color:#2c3e50;border-bottom:2px solid #4A90E2;padding-bottom:10px;">📊 專屬退休規劃分析報告</h2>
+                <p style="text-align:right;color:#7f8c8d;font-size:0.9em;">產生時間：${record.date}</p>
+                ${record.htmlContent}
+            `;
+            document.body.appendChild(tempContainer);
+
+            // 過濾掉檔名中的特殊字元避免出錯
+            let safeDate = record.date.replace(/[\/:\s]/g, '_');
+            const opt = {
+                margin:       10,
+                filename:     `退休規劃報告_${safeDate}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // 等待當前檔案包裝完成並觸發下載
+            await html2pdf().set(opt).from(tempContainer).save();
+            document.body.removeChild(tempContainer);
+            
+            // 每次下載間隔 800 毫秒，確保穩定性
+            await new Promise(resolve => setTimeout(resolve, 800));
+        }
+
+        this.innerText = "📥 批次下載所選 PDF";
+        this.disabled = false;
+        alert('所選報告已處理完畢！\n※若瀏覽器未全數下載，請確認網址列右方是否攔截了「多檔案下載權限」。');
+    });
+
+    // --- 4. 批次刪除功能 ---
+    document.getElementById('batchDeleteBtn').addEventListener('click', function() {
+        const checkedBoxes = document.querySelectorAll('.history-checkbox:checked');
+        if (checkedBoxes.length === 0) {
+            alert('請至少勾選一筆紀錄進行刪除！');
+            return;
+        }
+        
+        if (confirm(`確定要刪除這 ${checkedBoxes.length} 筆選取的紀錄嗎？（刪除後將無法復原）`)) {
+            let records = JSON.parse(localStorage.getItem('retirementRecords')) || [];
+            
+            // 將要刪除的索引轉成數字陣列，並「由大到小」排序（避免前方先刪除導致後方索引跑掉）
+            let indicesToDelete = Array.from(checkedBoxes).map(cb => parseInt(cb.value)).sort((a, b) => b - a);
+            
+            indicesToDelete.forEach(index => {
+                records.splice(index, 1);
+            });
+            
+            localStorage.setItem('retirementRecords', JSON.stringify(records));
+            loadHistory();
+            
+            // 隱藏下方的單筆結果預覽區，避免顯示已被刪除的內容
+            document.getElementById('resultArea').style.display = 'none';
+            alert('所選紀錄已成功刪除。');
+        }
+    });
+
+    // --- 5. 表單送出與單次計算邏輯 ---
     document.getElementById('retirementForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const formData = new FormData(this);
@@ -353,7 +601,6 @@
             return val ? val + suffix : '未填寫/未選擇';
         }
 
-        // 子女年齡統整
         const childAgeInputs = document.querySelectorAll('input[name="q1_children_age"]');
         let childrenSummary = '未填寫';
         if (childAgeInputs.length > 0) {
@@ -365,16 +612,16 @@
             childrenSummary = ages.join('、');
         }
 
-        // ================= 計算邏輯開始 =================
+        // 計算邏輯
         let yearsNeeded = 0;
         let annualExpense = 0;
+        let totalGapStr = "無法計算 (資料未填完整)";
 
-        // 1. 準備年數計算
         let currentAge = parseInt(formData.get('q1_current'));
         let retireAge = parseInt(formData.get('q1_retire'));
         let longevityAge = parseInt(formData.get('q1_longevity'));
-        
         let yearsCalculationHtml = "";
+        
         if (!isNaN(longevityAge)) {
             let baseAge = !isNaN(retireAge) ? retireAge : (!isNaN(currentAge) ? currentAge : 0);
             if (baseAge > 0 && longevityAge > baseAge) {
@@ -387,11 +634,9 @@
             }
         }
 
-        // 2. 年生活費計算
         let q6Val = formData.get('q6');
         let q6Display = getSingleValue('q6');
         let annualExpenseHtml = "";
-        
         if (q6Val && q6Val.includes("萬元")) {
             let monthly = parseInt(q6Val);
             if (!isNaN(monthly)) {
@@ -400,14 +645,12 @@
             }
         }
 
-        // 3. 資金缺口總額計算
         let totalGapHtml = "";
         if (yearsNeeded > 0 && annualExpense > 0) {
             let totalGap = yearsNeeded * annualExpense;
+            totalGapStr = `${totalGap} 萬元`;
             totalGapHtml = `<li><div class="gap-alert">預估總資金缺口：${totalGap} 萬元</div><br><small style="color:#666;">(計算方式：一年 ${annualExpense} 萬 × 準備年數 ${yearsNeeded} 年)</small></li>`;
         }
-
-        // ================= 計算邏輯結束 =================
 
         const htmlOutput = `
             <div class="result-category">
@@ -450,12 +693,53 @@
             </div>
         `;
 
-        const resultArea = document.getElementById('resultArea');
+        const now = new Date().toLocaleString('zh-TW');
+        document.getElementById('reportDate').innerText = "產生時間：" + now;
         document.getElementById('resultContent').innerHTML = htmlOutput;
-        resultArea.style.display = 'block';
         
+        const resultArea = document.getElementById('resultArea');
+        resultArea.style.display = 'block';
         resultArea.scrollIntoView({ behavior: 'smooth' });
+
+        // 寫入 LocalStorage
+        let records = JSON.parse(localStorage.getItem('retirementRecords')) || [];
+        records.push({
+            date: now,
+            gapSummary: totalGapStr,
+            htmlContent: htmlOutput
+        });
+        localStorage.setItem('retirementRecords', JSON.stringify(records));
+        
+        // 若歷史控制台開啟中，即時重新整理列表
+        if(document.getElementById('historyArea').style.display === 'block') {
+            loadHistory();
+        }
     });
+
+    // --- 6. 單次下載 PDF 功能 ---
+    document.getElementById('downloadPdfBtn').addEventListener('click', function() {
+        const element = document.getElementById('pdfContent');
+        const opt = {
+            margin:       10,
+            filename:     '退休規劃分析報告.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        
+        this.innerText = "⏳ PDF 產生中...";
+        this.disabled = true;
+
+        html2pdf().set(opt).from(element).save().then(() => {
+            this.innerText = "📥 下載此報告為 PDF";
+            this.disabled = false;
+        });
+    });
+
+    // 初始化載入
+    window.onload = function() {
+        loadHistory();
+    };
 </script>
 </body>
 </html>
