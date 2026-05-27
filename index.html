@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>退休規劃問卷</title>
+    <title>退休規劃問卷 - 業務與客群管理版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         :root {
@@ -12,6 +12,7 @@
             --card-bg: #FFFFFF;
             --text-color: #333333;
             --border-color: #E1E4E8;
+            --admin-color: #8E44AD;
         }
         body {
             font-family: "Helvetica Neue", Helvetica, Arial, "PingFang TC", "微軟正黑體", sans-serif;
@@ -37,10 +38,11 @@
             padding-bottom: 10px;
         }
         
-        /* 歷史紀錄管理介面 */
+        /* 歷史紀錄與權限管理面板 */
         .header-actions {
             display: flex;
             justify-content: flex-end;
+            gap: 10px;
             margin-bottom: 15px;
         }
         .btn-outline {
@@ -57,16 +59,72 @@
             background-color: var(--primary-color);
             color: white;
         }
+        .btn-admin-toggle {
+            border-color: var(--admin-color);
+            color: var(--admin-color);
+        }
+        .btn-admin-toggle:hover {
+            background-color: var(--admin-color);
+            color: white;
+        }
+        
         #historyArea {
             display: none;
             background: #fdfdfd;
             border: 1px solid #dcdcdc;
-            padding: 15px;
+            padding: 20px;
             border-radius: 8px;
             margin-bottom: 20px;
         }
-        .batch-control-bar {
+        
+        /* 認證區塊 */
+        .auth-block {
+            background: #f0f4f8;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            border: 1px solid #d0d7de;
+        }
+        .auth-block input {
+            padding: 6px;
+            margin-right: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        /* 篩選器區塊 */
+        .filter-bar {
+            background: #fff;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 15px;
             display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+        .filter-bar input[type="text"] {
+            width: auto;
+            max-width: 130px;
+            padding: 4px;
+            margin-top: 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .custom-date-inputs {
+            display: none;
+            align-items: center;
+            gap: 5px;
+        }
+        .custom-date-inputs input {
+            padding: 4px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .batch-control-bar {
+            display: none; /* 預設隱藏，管理者登入才顯示 */
             gap: 10px;
             align-items: center;
             flex-wrap: wrap;
@@ -74,6 +132,7 @@
             border-bottom: 2px solid var(--border-color);
             margin-bottom: 10px;
         }
+        
         #historyList {
             max-height: 250px;
             overflow-y: auto;
@@ -95,6 +154,7 @@
             font-size: 0.85em;
         }
 
+        /* 表單樣式 */
         .category {
             background-color: #f9fbff;
             border-left: 4px solid var(--primary-color);
@@ -125,7 +185,7 @@
             margin-bottom: 8px;
             cursor: pointer;
         }
-        input[type="text"], input[type="number"] {
+        input[type="text"], input[type="number"], select {
             width: 100%;
             max-width: 150px;
             padding: 8px;
@@ -205,7 +265,6 @@
             border: 1px solid #bce0ee;
         }
         
-        /* PDF 專用區塊 */
         #pdfContent {
             padding: 20px;
             background: #ffffff;
@@ -250,11 +309,8 @@
 
         @media (max-width: 600px) {
             .container { padding: 15px; }
-            label { display: inline-block; margin-bottom: 5px; }
             .inline-inputs { flex-direction: column; align-items: flex-start; gap: 10px; }
             input[type="text"], input[type="number"] { max-width: 100%; }
-            .child-input-group { width: 100%; }
-            .child-input-group input { flex-grow: 1; }
         }
     </style>
 </head>
@@ -263,21 +319,74 @@
 <div class="container">
     
     <div class="header-actions">
-        <button type="button" id="toggleHistoryBtn" class="btn-outline">🕒 查看歷史紀錄</button>
+        <button type="button" id="toggleHistoryBtn" class="btn-outline">🔍 客戶個人查詢</button>
+        <button type="button" id="adminModeBtn" class="btn-outline btn-admin-toggle">🔑 業務員批次後台</button>
     </div>
     
     <div id="historyArea">
-        <h3 style="margin-top:0;">📂 已儲存的規劃紀錄管理</h3>
-        <div class="batch-control-bar">
-            <label><input type="checkbox" id="selectAllHistory"> 全選</label>
-            <button type="button" id="batchDownloadBtn" class="btn-small" style="background-color: #27ae60;">📥 批次下載所選 PDF</button>
-            <button type="button" id="batchDeleteBtn" class="btn-small btn-danger">🗑️ 刪除所選</button>
+        <h3 id="panelTitle" style="margin-top:0; color: var(--primary-color);">🔍 退休規劃紀錄查詢</h3>
+        
+        <div class="auth-block" id="userAuthBlock">
+            <label>請輸入客戶姓名：</label>
+            <input type="text" id="searchUserKey" placeholder="例如：王小明" style="max-width:200px; display:inline-block; margin-top:0;">
+            <button type="button" class="btn-small" id="userSearchBtn" style="background-color: var(--primary-color);">查詢</button>
         </div>
-        <div id="historyList">目前沒有紀錄。</div>
+
+        <div class="auth-block" id="adminAuthBlock" style="display:none; background: #f5eef8; border-color: #d5b8e4;">
+            <p style="margin:0 0 8px 0; font-weight:bold; color: var(--admin-color);">🔒 GitHub 網站上傳者安全驗證</p>
+            <input type="text" id="ghUser" placeholder="GitHub 帳號" style="max-width:150px; display:inline-block; margin-top:0;">
+            <input type="password" id="ghToken" placeholder="GitHub Token / 密碼" style="max-width:180px; display:inline-block; margin-top:0;">
+            <button type="button" class="btn-small" id="adminLoginBtn" style="background-color: var(--admin-color);">驗證並登入</button>
+            <span id="adminStatus" style="margin-left:10px; font-size:0.9em;"></span>
+        </div>
+
+        <div class="filter-bar" id="adminFilterBar" style="display:none;">
+            <div>
+                <label>👤 業務員姓名：</label>
+                <input type="text" id="filterSalesperson" placeholder="輸入業務姓名撈取客群">
+            </div>
+            <div>
+                <label>📅 時間：</label>
+                <select id="dateFilterSelect" style="margin-top:0; padding:4px; width: auto;">
+                    <option value="all">全部時間</option>
+                    <option value="week">本週</option>
+                    <option value="month">本月</option>
+                    <option value="quarter">本季</option>
+                    <option value="custom">自訂區間 (限一季)</option>
+                </select>
+            </div>
+            <div class="custom-date-inputs" id="customDateGroup">
+                <input type="date" id="filterStartDate"> 到 <input type="date" id="filterEndDate">
+                <button type="button" class="btn-small" id="applyCustomDateBtn">套用</button>
+            </div>
+        </div>
+
+        <div class="batch-control-bar" id="adminBatchBar">
+            <label><input type="checkbox" id="selectAllHistory"> 全選此頁客群</label>
+            <button type="button" id="batchDownloadBtn" class="btn-small" style="background-color: #27ae60;">📥 批次下載 PDF (上限 10 筆)</button>
+            <button type="button" id="batchDeleteBtn" class="btn-small btn-danger">🗑️ 批次刪除</button>
+        </div>
+        
+        <div id="historyList">請先輸入客戶姓名查詢，或登入後台進行業務客群批次管理。</div>
     </div>
 
     <h1>退休規劃問卷</h1>
     <form id="retirementForm">
+        
+        <div class="category" style="border-left-color: #e67e22; background-color: #fffaf5;">
+            <h2>基本資料（必填）</h2>
+            <div class="inline-inputs" style="padding: 5px 0 0 0;">
+                <div>
+                    <label>客戶姓名：<span style="color:red;">*</span></label>
+                    <input type="text" name="user_identity" id="userIdentity" placeholder="填寫客戶姓名" required style="max-width: 200px;">
+                </div>
+                <div>
+                    <label style="margin-left: 15px;">服務業務員：<span style="color:red;">*</span></label>
+                    <input type="text" name="salesperson" id="salespersonName" placeholder="填寫業務員姓名" required style="max-width: 200px;">
+                </div>
+            </div>
+            <small style="display:block; color:#7f8c8d; margin-top:10px;">※ 欄位將完整儲存，供日後個人查詢與業務員名下客群批次下載使用。</small>
+        </div>
         
         <div class="category">
             <h2>規劃一：退休時程與現況</h2>
@@ -291,11 +400,9 @@
                 
                 <div class="children-section">
                     <p style="font-size: 0.95em; margin-bottom: 5px;">子女年齡填寫：</p>
-                    <div id="childrenContainer">
-                    </div>
+                    <div id="childrenContainer"></div>
                     <button type="button" id="addChildBtn" class="btn-small">➕ 新增子女</button>
                 </div>
-                
                 <small style="color: #666; display: block; margin-top: 15px;">*參考：平均餘命82歲(女)</small>
             </div>
         </div>
@@ -413,9 +520,11 @@
 </div>
 
 <script>
-    // --- 1. 子女動態增減邏輯 ---
     let childCount = 0;
+    let isAdminAuthenticated = false; 
+    let activePanelMode = 'user';     
 
+    // --- 1. 子女欄位增減 ---
     document.getElementById('addChildBtn').addEventListener('click', function() {
         childCount++;
         const container = document.getElementById('childrenContainer');
@@ -427,7 +536,6 @@
             <button type="button" class="btn-small btn-danger remove-child-btn">刪除</button>
         `;
         container.appendChild(childGroup);
-
         childGroup.querySelector('.remove-child-btn').addEventListener('click', function() {
             childGroup.remove();
             reindexChildren();
@@ -442,160 +550,336 @@
         });
     }
 
-    // --- 2. 歷史紀錄載入系統 (含批次核取方塊) ---
-    function loadHistory() {
+    // --- 2. 切換查詢面板顯示 ---
+    document.getElementById('toggleHistoryBtn').addEventListener('click', function() {
+        switchPanelMode('user');
+    });
+    document.getElementById('adminModeBtn').addEventListener('click', function() {
+        switchPanelMode('admin');
+    });
+
+    function switchPanelMode(mode) {
+        const area = document.getElementById('historyArea');
+        const title = document.getElementById('panelTitle');
+        
+        if (area.style.display === 'block' && activePanelMode === mode) {
+            area.style.display = 'none';
+            return;
+        }
+
+        activePanelMode = mode;
+        area.style.display = 'block';
+
+        if (mode === 'user') {
+            title.innerText = "🔍 客戶個人歷史紀錄查詢";
+            title.style.color = "var(--primary-color)";
+            document.getElementById('userAuthBlock').style.display = 'block';
+            document.getElementById('adminAuthBlock').style.display = 'none';
+            document.getElementById('adminFilterBar').style.display = 'none';
+            document.getElementById('adminBatchBar').style.display = 'none';
+            document.getElementById('historyList').innerHTML = "請輸入客戶姓名並點擊查詢單筆資料。";
+        } else {
+            title.innerText = "🔒 業務員客群批次管理後台";
+            title.style.color = "var(--admin-color)";
+            document.getElementById('userAuthBlock').style.display = 'none';
+            document.getElementById('adminAuthBlock').style.display = 'block';
+            
+            if (isAdminAuthenticated) {
+                document.getElementById('adminFilterBar').style.display = 'flex';
+                document.getElementById('adminBatchBar').style.display = 'flex';
+                renderHistory();
+            } else {
+                document.getElementById('adminFilterBar').style.display = 'none';
+                document.getElementById('adminBatchBar').style.display = 'none';
+                document.getElementById('historyList').innerHTML = "請先輸入 GitHub 帳密/Token 以解鎖業務批次客群查詢項。";
+            }
+        }
+    }
+
+    // --- 3. GitHub 連線驗證功能 ---
+    document.getElementById('adminLoginBtn').addEventListener('click', async function() {
+        const username = document.getElementById('ghUser').value.trim();
+        const token = document.getElementById('ghToken').value.trim();
+        const statusSpan = document.getElementById('adminStatus');
+
+        if (!username || !token) {
+            alert('請輸入 GitHub 帳號與存取 Token/密碼！');
+            return;
+        }
+
+        statusSpan.innerText = "⚡ 驗證中...";
+        statusSpan.style.color = "#d35400";
+
+        try {
+            const response = await fetch('https://api.github.com/user', {
+                headers: { 'Authorization': `token ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.login.toLowerCase() === username.toLowerCase()) {
+                    isAdminAuthenticated = true;
+                    statusSpan.innerText = "✅ 驗證成功";
+                    statusSpan.style.color = "green";
+                    
+                    document.getElementById('adminFilterBar').style.display = 'flex';
+                    document.getElementById('adminBatchBar').style.display = 'flex';
+                    renderHistory();
+                } else {
+                    throw new Error('帳號與 Token 不匹配');
+                }
+            } else {
+                throw new Error('驗證失敗');
+            }
+        } catch (error) {
+            isAdminAuthenticated = false;
+            statusSpan.innerText = "❌ 驗證失敗";
+            statusSpan.style.color = "red";
+            alert('GitHub 驗證失敗，請確認您的帳號或 Personal Access Token 是否正確！');
+        }
+    });
+
+    // --- 4. 一般客戶個人查詢過濾 ---
+    document.getElementById('userSearchBtn').addEventListener('click', function() {
+        const key = document.getElementById('searchUserKey').value.trim();
+        if(!key) {
+            alert('請輸入客戶姓名！');
+            return;
+        }
+        renderHistory(key);
+    });
+
+    // 業務員姓名即時輸入篩選事件
+    document.getElementById('filterSalesperson').addEventListener('input', function() {
+        renderHistory();
+    });
+
+    // --- 5. 日期篩選輔助函數 ---
+    function getQuarterRange(date) {
+        const q = Math.floor(date.getMonth() / 3);
+        const start = new Date(date.getFullYear(), q * 3, 1);
+        const end = new Date(date.getFullYear(), (q + 1) * 3, 0, 23, 59, 59, 999);
+        return { start, end };
+    }
+
+    // --- 6. 核心渲染邏輯（支援客戶單筆、業務員批次及日期多重過濾） ---
+    function renderHistory(userKey = null) {
         const historyList = document.getElementById('historyList');
         let records = JSON.parse(localStorage.getItem('retirementRecords')) || [];
         
-        if(records.length === 0) {
-            historyList.innerHTML = "目前沒有紀錄。";
-            document.getElementById('selectAllHistory').checked = false;
+        if (records.length === 0) {
+            historyList.innerHTML = "資料庫內目前沒有任何紀錄。";
+            return;
+        }
+
+        // A模式. 客戶單筆查詢（看自己做的）
+        if (activePanelMode === 'user' && userKey) {
+            records = records.filter(r => r.userIdentity && r.userIdentity.trim().toLowerCase() === userKey.toLowerCase());
+        }
+
+        // B模式. 業務員/管理後台高階過濾
+        if (activePanelMode === 'admin' && isAdminAuthenticated) {
+            // B1. 依業務員姓名篩選客群
+            const spKey = document.getElementById('filterSalesperson').value.trim().toLowerCase();
+            if (spKey) {
+                records = records.filter(r => r.salesperson && r.salesperson.trim().toLowerCase().includes(spKey));
+            }
+
+            // B2. 依日期篩選
+            const filterType = document.getElementById('dateFilterSelect').value;
+            const now = new Date();
+
+            if (filterType === 'week') {
+                const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+                startOfWeek.setHours(0,0,0,0);
+                records = records.filter(r => r.timestamp >= startOfWeek.getTime());
+            } else if (filterType === 'month') {
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                records = records.filter(r => r.timestamp >= startOfMonth.getTime());
+            } else if (filterType === 'quarter') {
+                const qRange = getQuarterRange(now);
+                records = records.filter(r => r.timestamp >= qRange.start.getTime() && r.timestamp <= qRange.end.getTime());
+            } else if (filterType === 'custom') {
+                const sVal = document.getElementById('filterStartDate').value;
+                const eVal = document.getElementById('filterEndDate').value;
+                if (sVal && eVal) {
+                    const start = new Date(sVal + "T00:00:00").getTime();
+                    const end = new Date(eVal + "T23:59:59").getTime();
+                    records = records.filter(r => r.timestamp >= start && r.timestamp <= end);
+                }
+            }
+        }
+
+        if (records.length === 0) {
+            historyList.innerHTML = "查無符合條件的規劃紀錄。";
             return;
         }
 
         historyList.innerHTML = "";
-        // 依據原始陣列索引渲染（讓最新產生的出現在列表最上方）
-        records.forEach((record, originalIndex) => {
+        
+        // 渲染列表 (由新到舊排序)
+        records.slice().reverse().forEach((record) => {
             const item = document.createElement('div');
             item.className = 'history-item';
             
+            // 判定是否渲染核取方塊 (只有解鎖後的後台能看見，方便批次勾選客戶)
+            const checkboxHtml = (activePanelMode === 'admin' && isAdminAuthenticated) 
+                ? `<input type="checkbox" class="history-checkbox" value="${record.timestamp}">` 
+                : '';
+
             item.innerHTML = `
-                <input type="checkbox" class="history-checkbox" value="${originalIndex}">
+                ${checkboxHtml}
                 <div style="flex-grow: 1;">
-                    <strong>📝 規劃日期：</strong> ${record.date} <br>
-                    <small>總缺口估計：${record.gapSummary}</small>
+                    <strong>👤 客戶：</strong> ${record.userIdentity || '未填寫'} | 
+                    <strong>👔 業務員：</strong> ${record.salesperson || '未指定'} <br>
+                    <strong>📝 日期：</strong> ${record.date} | <small style="color:#666;">預估缺口：${record.gapSummary}</small>
                 </div>
-                <button type="button" class="btn-outline" onclick="viewHistory(${originalIndex})">查看</button>
+                <button type="button" class="btn-outline" onclick="viewHistory(${record.timestamp})">詳情與下載</button>
             `;
-            // 最新建立的插入到最前面
-            if (historyList.firstChild) {
-                historyList.insertBefore(item, historyList.firstChild);
-            } else {
-                historyList.appendChild(item);
-            }
+            historyList.appendChild(item);
         });
-        
-        // 重設「全選」狀態為未選
+
         document.getElementById('selectAllHistory').checked = false;
     }
 
-    // 開關歷史面板
-    document.getElementById('toggleHistoryBtn').addEventListener('click', function() {
-        const area = document.getElementById('historyArea');
-        if (area.style.display === 'none' || area.style.display === '') {
-            area.style.display = 'block';
-            loadHistory();
+    // 連動顯示自訂日期輸入框
+    document.getElementById('dateFilterSelect').addEventListener('change', function() {
+        const group = document.getElementById('customDateGroup');
+        if (this.value === 'custom') {
+            group.style.display = 'flex';
         } else {
-            area.style.display = 'none';
+            group.style.display = 'none';
+            renderHistory();
         }
     });
 
-    // 「全選 / 全不選」控制
+    // 執行自訂區間判定（限制最多一季/90天）
+    document.getElementById('applyCustomDateBtn').addEventListener('click', function() {
+        const sVal = document.getElementById('filterStartDate').value;
+        const eVal = document.getElementById('filterEndDate').value;
+        if (!sVal || !eVal) {
+            alert('請完整選擇起訖日期！');
+            return;
+        }
+        const start = new Date(sVal);
+        const end = new Date(eVal);
+        
+        if (end < start) {
+            alert('結束日期不能早於開始日期！');
+            return;
+        }
+
+        const diffTime = Math.abs(end - start);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays > 90) {
+            alert(`⚠️ 自訂區間限制最大只能為一季（90天）！\n您當前選擇了 ${diffDays} 天，請重新縮小範圍。`);
+            return;
+        }
+
+        renderHistory();
+    });
+
+    // 全選事件
     document.getElementById('selectAllHistory').addEventListener('change', function() {
         const checkboxes = document.querySelectorAll('.history-checkbox');
         checkboxes.forEach(cb => cb.checked = this.checked);
     });
 
-    // 查看單筆紀錄
-    window.viewHistory = function(index) {
+    // 查看單筆
+    window.viewHistory = function(timestamp) {
         let records = JSON.parse(localStorage.getItem('retirementRecords')) || [];
-        const record = records[index];
+        const record = records.find(r => r.timestamp === timestamp);
         if(record) {
-            document.getElementById('reportDate').innerText = "產生時間：" + record.date;
+            document.getElementById('reportDate').innerText = "客戶姓名：" + (record.userIdentity || '匿名') + " | 服務業務員：" + (record.salesperson || '未指定') + " | 產生時間：" + record.date;
             document.getElementById('resultContent').innerHTML = record.htmlContent;
             document.getElementById('resultArea').style.display = 'block';
             document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth' });
         }
     };
 
-    // --- 3. 核心功能：批次下載 PDF 邏輯 ---
+    // --- 7. 業務員客戶群批次下載 (限額 10 筆防當機) ---
     document.getElementById('batchDownloadBtn').addEventListener('click', async function() {
         const checkedBoxes = document.querySelectorAll('.history-checkbox:checked');
         if (checkedBoxes.length === 0) {
-            alert('請至少勾選一筆紀錄進行下載！');
+            alert('請先勾選欲下載的紀錄！');
+            return;
+        }
+        
+        if (checkedBoxes.length > 10) {
+            alert(`⚠️ 為了防範瀏覽器記憶體超載或被系統封鎖，批次下載單次【最大上限限制 10 筆】！\n您當前選取了 ${checkedBoxes.length} 筆，請利用業務員姓名或日期篩選縮小範圍。`);
             return;
         }
         
         let records = JSON.parse(localStorage.getItem('retirementRecords')) || [];
-        this.innerText = "⏳ 批次下載中...";
+        this.innerText = `⏳ 批次處理中 (${checkedBoxes.length})...`;
         this.disabled = true;
 
-        // 利用 async/await 迴圈序列化生成，防止瀏覽器同時發送多檔下載而被封鎖
         for (let cb of checkedBoxes) {
-            let index = parseInt(cb.value);
-            let record = records[index];
+            let ts = parseInt(cb.value);
+            let record = records.find(r => r.timestamp === ts);
             if (!record) continue;
 
-            // 建立暫時性的隱藏 DOM 容器包裹內容
             let tempContainer = document.createElement('div');
             tempContainer.style.padding = '20px';
             tempContainer.style.background = '#ffffff';
             tempContainer.innerHTML = `
                 <h2 style="text-align:center;color:#2c3e50;border-bottom:2px solid #4A90E2;padding-bottom:10px;">📊 專屬退休規劃分析報告</h2>
-                <p style="text-align:right;color:#7f8c8d;font-size:0.9em;">產生時間：${record.date}</p>
+                <p style="text-align:right;color:#7f8c8d;font-size:0.9em;">客戶：${record.userIdentity} | 業務員：${record.salesperson} | 時間：${record.date}</p>
                 ${record.htmlContent}
             `;
             document.body.appendChild(tempContainer);
 
-            // 過濾掉檔名中的特殊字元避免出錯
+            let safeName = (record.userIdentity || "未知").replace(/[\/\\\:\*\?\"\<\>\|]/g, '_');
             let safeDate = record.date.replace(/[\/:\s]/g, '_');
             const opt = {
                 margin:       10,
-                filename:     `退休規劃報告_${safeDate}.pdf`,
+                filename:     `退休報告_${safeName}_${safeDate}.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { scale: 2 },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
-            // 等待當前檔案包裝完成並觸發下載
             await html2pdf().set(opt).from(tempContainer).save();
             document.body.removeChild(tempContainer);
-            
-            // 每次下載間隔 800 毫秒，確保穩定性
-            await new Promise(resolve => setTimeout(resolve, 800));
+            await new Promise(resolve => setTimeout(resolve, 1000)); 
         }
 
-        this.innerText = "📥 批次下載所選 PDF";
+        this.innerText = "📥 批次下載 PDF (上限 10 筆)";
         this.disabled = false;
-        alert('所選報告已處理完畢！\n※若瀏覽器未全數下載，請確認網址列右方是否攔截了「多檔案下載權限」。');
+        alert('選取的客戶規劃檔案已成功全數排程下載！');
     });
 
-    // --- 4. 批次刪除功能 ---
+    // 批次刪除
     document.getElementById('batchDeleteBtn').addEventListener('click', function() {
         const checkedBoxes = document.querySelectorAll('.history-checkbox:checked');
         if (checkedBoxes.length === 0) {
-            alert('請至少勾選一筆紀錄進行刪除！');
+            alert('請先勾選欲刪除的紀錄！');
             return;
         }
         
-        if (confirm(`確定要刪除這 ${checkedBoxes.length} 筆選取的紀錄嗎？（刪除後將無法復原）`)) {
+        if (confirm(`確定要永久移除這 ${checkedBoxes.length} 筆選取的客戶紀錄嗎？`)) {
             let records = JSON.parse(localStorage.getItem('retirementRecords')) || [];
+            let targetTimestamps = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
             
-            // 將要刪除的索引轉成數字陣列，並「由大到小」排序（避免前方先刪除導致後方索引跑掉）
-            let indicesToDelete = Array.from(checkedBoxes).map(cb => parseInt(cb.value)).sort((a, b) => b - a);
-            
-            indicesToDelete.forEach(index => {
-                records.splice(index, 1);
-            });
-            
+            records = records.filter(r => !targetTimestamps.includes(r.timestamp));
             localStorage.setItem('retirementRecords', JSON.stringify(records));
-            loadHistory();
-            
-            // 隱藏下方的單筆結果預覽區，避免顯示已被刪除的內容
+            renderHistory();
             document.getElementById('resultArea').style.display = 'none';
-            alert('所選紀錄已成功刪除。');
+            alert('所選客戶紀錄已從資料庫中抹除。');
         }
     });
 
-    // --- 5. 表單送出與單次計算邏輯 ---
+    // --- 8. 表單送出與單次儲存資料庫邏輯 ---
     document.getElementById('retirementForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const formData = new FormData(this);
         
+        const userIdentity = formData.get('user_identity').trim();
+        const salesperson = formData.get('salesperson').trim();
+        
         function getCheckedValues(name) {
             return formData.getAll(name).length > 0 ? formData.getAll(name).join('、') : '未選擇';
         }
-        
         function getSingleValue(name, suffix = '') {
             let val = formData.get(name);
             return val ? val + suffix : '未填寫/未選擇';
@@ -656,6 +940,8 @@
             <div class="result-category">
                 <h3>一、退休時程與現況分析</h3>
                 <ul>
+                    <li>客戶姓名：${userIdentity}</li>
+                    <li>服務業務員：${salesperson}</li>
                     <li>目前年齡：${getSingleValue('q1_current', ' 歲')}</li>
                     <li>預計退休：${getSingleValue('q1_retire', ' 歲')}</li>
                     <li>預估壽命：${getSingleValue('q1_longevity', ' 歲')}</li>
@@ -663,7 +949,6 @@
                     <li>子女狀況：${childrenSummary}</li>
                 </ul>
             </div>
-            
             <div class="result-category">
                 <h3>二、理財現況與能力評估</h3>
                 <ul>
@@ -672,7 +957,6 @@
                     <li>每月可提撥金額：${getSingleValue('q8')}</li>
                 </ul>
             </div>
-
             <div class="result-category">
                 <h3>三、退休願景與目標資金</h3>
                 <ul>
@@ -682,7 +966,6 @@
                     ${totalGapHtml}
                 </ul>
             </div>
-
             <div class="result-category">
                 <h3>四、風險評估與後續規劃</h3>
                 <ul>
@@ -693,30 +976,35 @@
             </div>
         `;
 
-        const now = new Date().toLocaleString('zh-TW');
-        document.getElementById('reportDate').innerText = "產生時間：" + now;
+        const now = new Date();
+        const timeStr = now.toLocaleString('zh-TW');
+        
+        document.getElementById('reportDate').innerText = "客戶姓名：" + userIdentity + " | 服務業務員：" + salesperson + " | 產生時間：" + timeStr;
         document.getElementById('resultContent').innerHTML = htmlOutput;
         
         const resultArea = document.getElementById('resultArea');
         resultArea.style.display = 'block';
         resultArea.scrollIntoView({ behavior: 'smooth' });
 
-        // 寫入 LocalStorage
+        // 儲存至資料庫結構
         let records = JSON.parse(localStorage.getItem('retirementRecords')) || [];
         records.push({
-            date: now,
+            timestamp: now.getTime(),
+            date: timeStr,
+            userIdentity: userIdentity,
+            salesperson: salesperson, // 儲存業務員資料
             gapSummary: totalGapStr,
             htmlContent: htmlOutput
         });
         localStorage.setItem('retirementRecords', JSON.stringify(records));
         
-        // 若歷史控制台開啟中，即時重新整理列表
+        // 即時更新
         if(document.getElementById('historyArea').style.display === 'block') {
-            loadHistory();
+            renderHistory(activePanelMode === 'user' ? userIdentity : null);
         }
     });
 
-    // --- 6. 單次下載 PDF 功能 ---
+    // 單次下載
     document.getElementById('downloadPdfBtn').addEventListener('click', function() {
         const element = document.getElementById('pdfContent');
         const opt = {
@@ -726,20 +1014,13 @@
             html2canvas:  { scale: 2 },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
-        
         this.innerText = "⏳ PDF 產生中...";
         this.disabled = true;
-
         html2pdf().set(opt).from(element).save().then(() => {
             this.innerText = "📥 下載此報告為 PDF";
             this.disabled = false;
         });
     });
-
-    // 初始化載入
-    window.onload = function() {
-        loadHistory();
-    };
 </script>
 </body>
 </html>
