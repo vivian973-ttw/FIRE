@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>退休規劃問卷 - 多角色客群管理版</title>
+    <title>退休規劃問卷 - 雲端多設備同步版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         :root {
@@ -491,10 +491,14 @@
 </div>
 
 <script>
+    // 🔗 🔒 雲端資料庫串接網址設定 
+    const API_URL = 'https://script.google.com/macros/s/AKfycbz9FJz5RdwMLpfsErq-xqBxDCQc9abrFTxHpccMQm2s-UpuRv6qdSZ2Rdw6ozHJhZLlNw/exec'; 
+
     let childCount = 0;
     let currentRole = ''; // user, sales, admin
     let isAdminLoggedIn = false;
-    let currentReportCustomerName = ''; // 全域追蹤目前開啟的客戶名字，供下載命名使用
+    let currentReportCustomerName = ''; 
+    let currentRecords = []; // 快取從雲端撈下來的歷史資料
 
     // --- 子女欄位增減 ---
     document.getElementById('addChildBtn').addEventListener('click', function() {
@@ -520,6 +524,61 @@
         groups.forEach((g, idx) => {
             g.querySelector('.child-label').innerText = `第 ${idx + 1} 位子女：`;
         });
+    }
+
+    // --- ☁️ 雲端資料庫讀寫底層方法 ---
+    async function fetchRecordsFromServer() {
+        if (!API_URL || API_URL.includes('請把複製')) {
+            return JSON.parse(localStorage.getItem('retirementRecords')) || [];
+        }
+        try {
+            const response = await fetch(API_URL);
+            return await response.json();
+        } catch (error) {
+            console.error("無法從雲端讀取資料:", error);
+            alert("雲端連線失敗，自動切換至本機暫存快取。");
+            return JSON.parse(localStorage.getItem('retirementRecords')) || [];
+        }
+    }
+
+    async function saveRecordToServer(record) {
+        // 先寫入本機備份防遺失
+        let records = JSON.parse(localStorage.getItem('retirementRecords')) || [];
+        records.push(record);
+        localStorage.setItem('retirementRecords', JSON.stringify(records));
+
+        if (!API_URL || API_URL.includes('請把複製')) return true;
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'save', record: record })
+            });
+            const resData = await response.json();
+            return resData.status === 'success';
+        } catch (error) {
+            console.error("雲端上傳錯誤:", error);
+            return false;
+        }
+    }
+
+    async function deleteRecordsFromServer(timestamps) {
+        // 同步刪除本機備份
+        let records = JSON.parse(localStorage.getItem('retirementRecords')) || [];
+        records = records.filter(r => !timestamps.includes(r.timestamp));
+        localStorage.setItem('retirementRecords', JSON.stringify(records));
+
+        if (!API_URL || API_URL.includes('請把複製')) return true;
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'batchDelete', timestamps: timestamps })
+            });
+            const resData = await response.json();
+            return resData.status === 'success';
+        } catch (error) {
+            console.error("雲端刪除錯誤:", error);
+            return false;
+        }
     }
 
     // --- 身份切換連動邏輯 ---
@@ -613,12 +672,15 @@
         renderRecords();
     });
 
-    // --- 核心過濾與渲染邏輯 ---
-    function renderRecords() {
+    // --- 核心過濾與雲端渲染邏輯 ---
+    async function renderRecords() {
         const listContainer = document.getElementById('historyList');
-        const records = JSON.parse(localStorage.getItem('retirementRecords')) || [];
+        listContainer.innerHTML = "⏳ 正在從雲端載入最新資料...";
 
-        if (records.length === 0) {
+        // 從雲端抓取全球最新即時資料
+        currentRecords = await fetchRecordsFromServer();
+
+        if (currentRecords.length === 0) {
             listContainer.innerHTML = "資料庫目前沒有任何問卷紀錄。";
             return;
         }
@@ -631,14 +693,14 @@
                 listContainer.innerHTML = "請輸入客戶姓名再點擊查詢。";
                 return;
             }
-            filtered = records.filter(r => r.userIdentity && r.userIdentity.trim().toLowerCase() === userKey);
+            filtered = currentRecords.filter(r => r.userIdentity && r.userIdentity.trim().toLowerCase() === userKey);
         } 
         else if (currentRole === 'sales') {
             const salesKey = document.getElementById('searchSalesKey').value.trim().toLowerCase();
-            filtered = records.filter(r => r.salesperson && r.salesperson.trim().toLowerCase() === salesKey);
+            filtered = currentRecords.filter(r => r.salesperson && r.salesperson.trim().toLowerCase() === salesKey);
         } 
         else if (currentRole === 'admin' && isAdminLoggedIn) {
-            filtered = records; 
+            filtered = currentRecords; 
         }
 
         if (filtered.length === 0) {
@@ -675,10 +737,9 @@
     });
 
     window.viewHistoryDetail = function(timestamp) {
-        const records = JSON.parse(localStorage.getItem('retirementRecords')) || [];
-        const found = records.find(r => r.timestamp === timestamp);
+        const found = currentRecords.find(r => r.timestamp === timestamp);
         if (found) {
-            currentReportCustomerName = found.userIdentity || '客戶'; // 帶入目前查看的客戶名字
+            currentReportCustomerName = found.userIdentity || '客戶'; 
             document.getElementById('reportDate').innerText = "客戶姓名：" + found.userIdentity + " | 服務業務員：" + found.salesperson + " | 產生時間：" + found.date;
             document.getElementById('resultContent').innerHTML = found.htmlContent;
             document.getElementById('resultArea').style.display = 'block';
@@ -686,7 +747,7 @@
         }
     };
 
-    // --- 🔒 核心修正：批次下載功能（原生字串解析防空白 & 客戶姓名檔名優化版） ---
+    // --- 批次下載功能（原生字串解析防空白 & 客戶姓名檔名版） ---
     document.getElementById('batchDownloadBtn').addEventListener('click', async function() {
         const checked = document.querySelectorAll('.history-checkbox:checked');
         if (checked.length === 0) {
@@ -700,7 +761,6 @@
 
         alert('【⚠️ 重要下載權限提示】\n\n點選確定後，程式將開始依序下載。\n若您的瀏覽器「只下載了一份」就停住，請查看瀏覽器【網址列右側】是否出現了「已封鎖多個檔案下載」的阻擋圖示，請點擊它並將其修改為「一律允許」，即可正常下載後面幾份報告。');
 
-        const records = JSON.parse(localStorage.getItem('retirementRecords')) || [];
         const originalBtnText = this.innerText;
         this.disabled = true;
 
@@ -709,13 +769,11 @@
             this.innerText = `⏳ 正在處理第 ${i + 1} / ${checked.length} 份報告...`;
             
             let ts = parseInt(cb.value);
-            let target = records.find(r => r.timestamp === ts);
+            let target = currentRecords.find(r => r.timestamp === ts);
             if (!target) continue;
 
-            // 檔名完全使用客戶名字，並過濾掉作業系統不支援的特殊字元
-            let cleanName = (target.userIdentity || "客戶").replace(/[\/\\\:\*\?\"\<\>\|]/g, '_');
+            let cleanName = (target.userIdentity || "客戶").replace(/[\/\\\:\*\?訂單\"\<\>\|]/g, '_');
             
-            // 直接將內容重組為乾淨的 HTML 字串，不使用自訂離屏 DOM 節點，交給 html2pdf 內部核心原生代理解析
             let htmlString = `
                 <div style="padding: 15px; background: #ffffff; font-family: 'Helvetica Neue', Helvetica, Arial, 'PingFang TC', '微軟正黑體', sans-serif;">
                     <h2 style="text-align: center; color: #2c3e50; border-bottom: 2px solid #4A90E2; padding-bottom: 10px; margin-top: 0; margin-bottom: 15px; font-size: 20px;">📊 專屬退休規劃分析報告</h2>
@@ -726,19 +784,16 @@
 
             const opt = {
                 margin:       [12, 12, 12, 12],
-                filename:     `${cleanName}.pdf`, // 檔名設定為「客戶姓名.pdf」
+                filename:     `${cleanName}.pdf`, 
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { scale: 2, useCORS: true, scrollY: 0, scrollX: 0 },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
                 pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
             };
 
-            // 利用 html2pdf 的字串解析機制進行轉換
             await new Promise((resolve) => {
                 html2pdf().set(opt).from(htmlString).save().then(() => {
-                    setTimeout(() => {
-                        resolve();
-                    }, 1500); // 1.5 秒排隊緩衝時間
+                    setTimeout(() => { resolve(); }, 1500); 
                 }).catch((err) => {
                     console.error("PDF下載出錯:", err);
                     setTimeout(() => { resolve(); }, 1500);
@@ -751,32 +806,40 @@
         alert('🎉 批次下載排程處理完畢！\n若是發現數量不足，請確認是否有允許瀏覽器下載多檔案的權限喔！');
     });
 
-    // --- 批次刪除 ---
-    document.getElementById('batchDeleteBtn').addEventListener('click', function() {
+    // --- 批次刪除（同步雲端刪除） ---
+    document.getElementById('batchDeleteBtn').addEventListener('click', async function() {
         const checked = document.querySelectorAll('.history-checkbox:checked');
         if (checked.length === 0) {
             alert('請先勾選欲刪除的資料！');
             return;
         }
-        if (confirm(`⚠️ 警告：確定要永久刪除選取的 ${checked.length} 筆客戶資料嗎？此動作無法復原。`)) {
-            let records = JSON.parse(localStorage.getItem('retirementRecords')) || [];
+        if (confirm(`⚠️ 警告：確定要從「雲端資料庫」永久刪除選取的 ${checked.length} 筆客戶資料嗎？所有設備都將同步消失，此動作無法復原。`)) {
+            const originalBtnText = this.innerText;
+            this.innerText = "⏳ 正在同步從雲端刪除...";
+            this.disabled = true;
+
             let targetTimestamps = Array.from(checked).map(c => parseInt(c.value));
             
-            records = records.filter(r => !targetTimestamps.includes(r.timestamp));
-            localStorage.setItem('retirementRecords', JSON.stringify(records));
-            renderRecords();
+            await deleteRecordsFromServer(targetTimestamps);
+            await renderRecords(); // 重新整理畫面
+
+            this.innerText = originalBtnText;
+            this.disabled = false;
             document.getElementById('resultArea').style.display = 'none';
-            alert('資料已成功由資料庫移出。');
+            alert('資料已成功由雲端資料庫完全移出。');
         }
     });
 
-    // --- 表單提交與計算儲存 ---
-    document.getElementById('retirementForm').addEventListener('submit', function(e) {
+    // --- 表單提交與計算並上傳雲端 ---
+    document.getElementById('retirementForm').addEventListener('submit', async function(e) {
         e.preventDefault();
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalSubmitText = submitBtn.innerText;
+
         const formData = new FormData(this);
         const name = formData.get('user_identity').trim();
         const sales = formData.get('salesperson').trim();
-        currentReportCustomerName = name; // 新產生的問卷直接帶入名字
+        currentReportCustomerName = name; 
         
         const getCheckVal = (n) => formData.getAll(n).length > 0 ? formData.getAll(n).join('、') : '未選擇';
         const getSingleVal = (n, s = '') => formData.get(n) ? formData.get(n) + s : '未填寫';
@@ -857,26 +920,37 @@
         const now = new Date();
         const timeStr = now.toLocaleString('zh-TW');
 
-        document.getElementById('reportDate').innerText = "客戶姓名：" + name + " | 服務業務員：" + sales + " | 產生時間：" + timeStr;
-        document.getElementById('resultContent').innerHTML = outHtml;
-        document.getElementById('resultArea').style.display = 'block';
-        document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth' });
+        // 改為載入中狀態並進行雲端上傳
+        submitBtn.innerText = "⏳ 正在同步儲存至雲端資料庫...";
+        submitBtn.disabled = true;
 
-        let records = JSON.parse(localStorage.getItem('retirementRecords')) || [];
-        records.push({
+        const recordData = {
             timestamp: now.getTime(),
             date: timeStr,
             userIdentity: name,
             salesperson: sales,
             gapSummary: gapStr,
             htmlContent: outHtml
-        });
-        localStorage.setItem('retirementRecords', JSON.stringify(records));
+        };
 
+        // 核心上傳
+        await saveRecordToServer(recordData);
+
+        // 本地立即呈現
+        document.getElementById('reportDate').innerText = "客戶姓名：" + name + " | 服務業務員：" + sales + " | 產生時間：" + timeStr;
+        document.getElementById('resultContent').innerHTML = outHtml;
+        document.getElementById('resultArea').style.display = 'block';
+        document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth' });
+
+        // 復原按鈕
+        submitBtn.innerText = originalSubmitText;
+        submitBtn.disabled = false;
+
+        // 如果後台面版開著，立刻更新列表
         if(document.getElementById('historyArea').style.display === 'block') { renderRecords(); }
     });
 
-    // --- 單次下載按鈕 （同步修正客戶姓名為檔名）---
+    // --- 單次下載按鈕 （客戶姓名為檔名）---
     document.getElementById('downloadPdfBtn').addEventListener('click', function() {
         const element = document.getElementById('pdfContent');
         this.innerText = "⏳ 報告下載中...";
@@ -886,7 +960,7 @@
 
         const opt = {
             margin:       [12, 12, 12, 12],
-            filename:     `${cleanName}.pdf`, // 單次下載也同步改為「客戶姓名.pdf」
+            filename:     `${cleanName}.pdf`, 
             image:        { type: 'jpeg', quality: 0.98 },
             html2canvas:  { scale: 2, useCORS: true, scrollY: 0, scrollX: 0 },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
