@@ -96,37 +96,83 @@
             gap: 12px;
             align-items: center;
             flex-wrap: wrap;
-            padding: 10px 0;
+            padding: 12px;
             border-bottom: 2px solid var(--border-color);
             margin-bottom: 15px;
-            background-color: #fafafa;
-            padding-left: 10px;
-            border-radius: 4px;
+            background-color: #f1f3f5;
+            border-radius: 6px;
         }
         
+        /* 🎯 歷史紀錄清單容器升級（高級卡片質感） */
         #historyList {
-            max-height: 300px;
+            max-height: 420px;
             overflow-y: auto;
-            border: 1px solid #eee;
-            background: #fff;
-            border-radius: 4px;
-            padding: 5px;
-        }
-        .history-item {
+            border: 1px solid #e1e4e8;
+            background: #f8f9fa;
+            border-radius: 8px;
             padding: 12px;
-            border-bottom: 1px dashed #eee;
+        }
+        /* 🎯 獨立客戶卡片，徹底解決區分不開的痛點 */
+        .history-item {
+            background: #ffffff;
+            border: 1px solid #e1e4e8;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
             display: flex;
             align-items: center;
             gap: 12px;
+            transition: all 0.2s ease;
         }
         .history-item:last-child {
-            border-bottom: none;
+            margin-bottom: 0;
+        }
+        .history-item:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.06);
+        }
+        .item-main {
+            flex-grow: 1;
+        }
+        .item-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        /* 🎯 高亮亮藍色客戶標籤 */
+        .badge-client {
+            background-color: #e8f4f8;
+            color: #1e6bb8;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.92em;
+            border: 1px solid #bce0ee;
+        }
+        /* 🎯 高亮綠色業務代表標籤 */
+        .badge-sales {
+            background-color: #eafaf1;
+            color: #219653;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.92em;
+            border: 1px solid #c7f3d6;
+        }
+        .item-details {
+            font-size: 0.88em;
+            color: #555;
+            line-height: 1.6;
         }
         .history-item button {
             width: auto;
             margin: 0;
-            padding: 5px 12px;
-            font-size: 0.85em;
+            padding: 6px 14px;
+            font-size: 0.88em;
+            cursor: pointer;
         }
 
         /* 表單與問卷樣式 */
@@ -240,7 +286,7 @@
             border: 1px solid #bce0ee;
         }
         
-        /* PDF 內容專用排版 */
+        /* 網頁預覽報告排版 */
         #pdfContent {
             padding: 15px;
             background: #ffffff;
@@ -261,8 +307,6 @@
             padding: 12px;
             border-radius: 5px;
             border: 1px solid #eee;
-            page-break-inside: avoid; /* 防止單個區塊內部被截斷 */
-            break-inside: avoid;
         }
         .result-category h3 {
             margin: 0 0 8px 0;
@@ -335,9 +379,9 @@
         </div>
 
         <div class="batch-control-bar" id="batchControlBar">
-            <label style="margin-bottom:0;"><input type="checkbox" id="selectAllHistory"> 全選客群</label>
-            <button type="button" id="batchDownloadBtn" class="btn-small" style="background-color: #27ae60;">📥 批次下載 PDF (上限 10 筆)</button>
-            <button type="button" id="batchDeleteBtn" class="btn-small btn-danger" style="display:none;">🗑️ 批次永久刪除</button>
+            <label style="margin-bottom:0; font-weight: bold;"><input type="checkbox" id="selectAllHistory" style="transform: scale(1.1); margin-right: 3px;"> 全選此頁客群</label>
+            <button type="button" id="batchDownloadBtn" class="btn-small" style="background-color: #27ae60; font-weight: bold; padding: 8px 15px;">📥 批次下載 PDF (上限 10 筆)</button>
+            <button type="button" id="batchDeleteBtn" class="btn-small btn-danger" style="display:none; padding: 8px 15px;">🗑️ 批次永久刪除</button>
         </div>
         
         <div id="historyList">請選擇上方身份別並輸入查詢條件。</div>
@@ -705,15 +749,15 @@
         renderRecords();
     });
 
-    // --- 核心過濾與雲端渲染邏輯 ---
+    // --- 🎯 核心過濾與全新高級卡片渲染邏輯 ---
     async function renderRecords() {
         const listContainer = document.getElementById('historyList');
-        listContainer.innerHTML = "⏳ 正在從雲端載入最新資料...";
+        listContainer.innerHTML = "<div style='padding:15px; text-align:center; color:#777;'>⏳ 正在從雲端載入最新客群檔案...</div>";
 
         currentRecords = await fetchRecordsFromServer();
 
         if (currentRecords.length === 0) {
-            listContainer.innerHTML = "資料庫目前沒有任何問卷紀錄。";
+            listContainer.innerHTML = "<div style='padding:15px; text-align:center; color:#777;'>資料庫目前沒有任何問卷紀錄。</div>";
             return;
         }
 
@@ -722,7 +766,7 @@
         if (currentRole === 'user') {
             const userKey = document.getElementById('searchUserKey').value.trim().toLowerCase();
             if (!userKey) {
-                listContainer.innerHTML = "請輸入客戶姓名再點擊查詢. ";
+                listContainer.innerHTML = "<div style='padding:15px; text-align:center; color:#777;'>請輸入客戶姓名再點擊查詢。</div>";
                 return;
             }
             filtered = currentRecords.filter(r => r.userIdentity && r.userIdentity.trim().toLowerCase() === userKey);
@@ -736,27 +780,35 @@
         }
 
         if (filtered.length === 0) {
-            listContainer.innerHTML = "查無符合條件的規劃報表。";
+            listContainer.innerHTML = "<div style='padding:15px; text-align:center; color:#777;'>查無符合條件的規劃報表。</div>";
             return;
         }
 
-        listContainer.innerHTML = "";
+        // 🎯 客戶總數統計標題
+        listContainer.innerHTML = `<div style="padding: 0 0 10px 5px; font-weight: bold; color: #555; font-size:0.95em;">🔍 共找到 ${filtered.length} 筆客戶規劃紀錄：</div>`;
         
+        // 倒序排列，最新填寫的排最上面
         filtered.slice().reverse().forEach(record => {
             const item = document.createElement('div');
             item.className = 'history-item';
             
             const showCheckbox = (currentRole === 'sales' || (currentRole === 'admin' && isAdminLoggedIn));
-            const cbHtml = showCheckbox ? `<input type="checkbox" class="history-checkbox" value="${record.timestamp}">` : '';
+            const cbHtml = showCheckbox ? `<input type="checkbox" class="history-checkbox" value="${record.timestamp}" style="transform: scale(1.2); margin-right: 5px;">` : '';
 
+            // 🎯 卡片內部全新改造：區分力超強的視覺結構
             item.innerHTML = `
                 ${cbHtml}
-                <div style="flex-grow: 1;">
-                    <strong>👤 客戶：</strong> ${record.userIdentity || '未填'} | 
-                    <strong>👔 業務員：</strong> ${record.salesperson || '未指定'} <br>
-                    <strong>📅 時間：</strong> ${record.date} | <small style="color:#e67e22; font-weight:bold;">缺口：${record.gapSummary}</small>
+                <div class="item-main">
+                    <div class="item-header">
+                        <span class="badge-client">👤 客戶：${record.userIdentity || '未填'}</span>
+                        <span class="badge-sales">👔 業務員：${record.salesperson || '未指定'}</span>
+                    </div>
+                    <div class="item-details">
+                        📅 <b>填寫時間：</b>${record.date} <br>
+                        💰 <b>預估退休缺口：</b><span style="color:#e67e22; font-weight:bold;">${record.gapSummary}</span>
+                    </div>
                 </div>
-                <button type="button" class="btn-outline" style="border: 1px solid #ccc;" onclick="viewHistoryDetail(${record.timestamp})">開啟查看</button>
+                <button type="button" class="btn-small" style="background-color: var(--primary-color); font-weight:bold; padding: 6px 12px;" onclick="viewHistoryDetail(${record.timestamp})">開啟查看</button>
             `;
             listContainer.appendChild(item);
         });
@@ -779,7 +831,7 @@
         }
     };
 
-    // --- 📥 批次下載功能（黃金防空白與錯位機制） ---
+    // --- 📥 批次下載功能（完美修復空白與斷層 Bug） ---
     document.getElementById('batchDownloadBtn').addEventListener('click', async function() {
         const checked = document.querySelectorAll('.history-checkbox:checked');
         if (checked.length === 0) {
@@ -796,9 +848,6 @@
         const originalBtnText = this.innerText;
         this.disabled = true;
 
-        const currentScrollY = window.scrollY;
-        window.scrollTo(0, 0);
-
         for (let i = 0; i < checked.length; i++) {
             let cb = checked[i];
             this.innerText = `⏳ 正在處理第 ${i + 1} / ${checked.length} 份報告...`;
@@ -809,294 +858,26 @@
 
             let cleanName = (target.userIdentity || "客戶").replace(/[\/\\\:\*\?訂單\"\<\>\|]/g, '_');
             
+            // 🎯 升級：移到正數絕對座標深處（15000px），100% 規避 html2canvas 全白與斷開 Bug
             let tempDiv = document.createElement('div');
             tempDiv.style.position = 'absolute';
-            tempDiv.style.left = '-9999px'; 
-            tempDiv.style.top = '0';
-            tempDiv.style.width = '740px'; 
+            tempDiv.style.left = '0'; 
+            tempDiv.style.top = '15000px';
+            tempDiv.style.width = '700px'; 
             tempDiv.style.background = '#ffffff';
+            tempDiv.style.padding = '30px';
+            tempDiv.style.boxSizing = 'border-box';
             
             tempDiv.innerHTML = `
-                <div style="padding: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, 'PingFang TC', '微軟正黑體', sans-serif;">
-                    <h2 style="text-align: center; color: #2c3e50; border-bottom: 2px solid #4A90E2; padding-bottom: 10px; margin-top: 0; margin-bottom: 15px; font-size: 20px;">📊 專屬退休規劃分析報告</h2>
-                    <p style="text-align: right; color: #7f8c8d; font-size: 12px; margin-bottom: 10px;">客戶姓名：${target.userIdentity} | 服務業務員：${target.salesperson} | 產生時間：${target.date}</p>
-                    <div>${target.htmlContent}</div>
-                </div>
-            `;
-            document.body.appendChild(tempDiv);
-
-            const opt = {
-                margin:       [10, 15, 10, 15],
-                filename:     `${cleanName}.pdf`, 
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, scrollY: 0, scrollX: 0 }, 
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak:    { mode: ['css', 'legacy'] } 
-            };
-
-            await new Promise((resolve) => {
-                html2pdf().set(opt).from(tempDiv).save().then(() => {
-                    document.body.removeChild(tempDiv); 
-                    setTimeout(() => { resolve(); }, 1200); 
-                }).catch((err) => {
-                    print(err);
-                    if(document.body.contains(tempDiv)) document.body.removeChild(tempDiv);
-                    setTimeout(() => { resolve(); }, 1200);
-                });
-            });
-        }
-
-        window.scrollTo(0, currentScrollY);
-        this.innerText = originalBtnText;
-        this.disabled = false;
-        alert('🎉 批次下載排程處理完畢！');
-    });
-
-    // --- 批次刪除（同步雲端刪除） ---
-    document.getElementById('batchDeleteBtn').addEventListener('click', async function() {
-        const checked = document.querySelectorAll('.history-checkbox:checked');
-        if (checked.length === 0) {
-            alert('請先勾選欲刪除的資料！');
-            return;
-        }
-        if (confirm(`⚠️ 警告：確定要從「雲端資料庫」永久刪除選取的 ${checked.length} 筆客戶資料嗎？所有設備都將同步消失，此動作無法復原。`)) {
-            const originalBtnText = this.innerText;
-            this.innerText = "⏳ 正在同步從雲端刪除...";
-            this.disabled = true;
-
-            let targetTimestamps = Array.from(checked).map(c => parseInt(c.value));
-            
-            await deleteRecordsFromServer(targetTimestamps);
-            await renderRecords(); 
-
-            this.innerText = originalBtnText;
-            this.disabled = false;
-            document.getElementById('resultArea').style.display = 'none';
-            alert('資料已成功由雲端資料庫完全移出。');
-        }
-    });
-
-    // --- 表單提交與計算並上傳雲端 ---
-    document.getElementById('retirementForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const submitBtn = this.querySelector('button[type="submit"]');
-        const originalSubmitText = submitBtn.innerText;
-
-        const formData = new FormData(this);
-        const name = formData.get('user_identity').trim();
-        const sales = formData.get('salesperson').trim();
-        currentReportCustomerName = name; 
-        
-        const getCheckVal = (n) => formData.getAll(n).length > 0 ? formData.getAll(n).join('、') : '未選擇';
-        const getSingleVal = (n, s = '') => formData.get(n) ? formData.get(n) + s : '未填寫';
-
-        const children = document.querySelectorAll('input[name="q1_children_age"]');
-        let childStr = '未填寫';
-        if (children.length > 0) {
-            let arr = [];
-            children.forEach((c, i) => arr.push(`第 ${i+1} 位：${c.value ? c.value+' 歲' : '未填'}`));
-            childStr = arr.join('、');
-        }
-
-        let years = 0, annual = 0, gapStr = "資料未全";
-        let cur = parseInt(formData.get('q1_current'));
-        let ret = parseInt(formData.get('q1_retire'));
-        let lon = parseInt(formData.get('q1_longevity'));
-        let yearsHtml = "";
-
-        if (!isNaN(lon)) {
-            let base = !isNaN(ret) ? ret : (!isNaN(cur) ? cur : 0);
-            if (base > 0 && lon > base) {
-                years = lon - base;
-                yearsHtml = `<li><span class="highlight-calc">需準備退休金年數：${years} 年</span></li>`;
-            }
-        }
-
-        let q6 = formData.get('q6');
-        let annualHtml = "";
-        if (q6 && q6.includes("萬元")) {
-            let m = parseInt(q6);
-            if (!isNaN(m)) { annual = m * 12; annualHtml = ` <span class="highlight-calc">（年需 ${annual} 萬元）</span>`; }
-        }
-
-        let gapHtml = "";
-        if (years > 0 && annual > 0) {
-            let total = years * annual;
-            gapStr = `${total} 萬元`;
-            gapHtml = `<li><div class="gap-alert">預估總資金缺口：${total} 萬元</div></li>`;
-        }
-
-        const outHtml = `
-            <div class="result-category">
-                <h3>一、退休時程與現況</h3>
-                <ul>
-                    <li>客戶姓名：${name} | 服務業務員：${sales}</li>
-                    <li>年齡現況：目前 ${getSingleVal('q1_current',' 歲')} / 預計退休 ${getSingleVal('q1_retire',' 歲')} / 預估壽命 ${getSingleVal('q1_longevity',' 歲')}</li>
-                    ${yearsHtml}
-                    <li>子女狀況：${childStr}</li>
-                </ul>
-            </div>
-            <div class="result-category">
-                <h3>二、理財現況與能力評估</h3>
-                <ul>
-                    <li>準備方法：${getCheckVal('q2')}</li>
-                    <li>最有保障來源：${getCheckVal('q3')}</li>
-                    <li>每月可提撥額：${getSingleVal('q8')}</li>
-                </ul>
-            </div>
-            <div class="result-category">
-                <h3>三、退休願景與目標資金</h3>
-                <ul>
-                    <li>退休規劃：${getCheckVal('q4')}</li>
-                    <li>專家建議總額：${getSingleVal('q5')}</li>
-                    <li>期望每月生活費：${getSingleVal('q6')}${annualHtml}</li>
-                    ${gapHtml}
-                </ul>
-            </div>
-            <div class="result-category">
-                <h3>四、風險評估與後續規劃</h3>
-                <ul>
-                    <li>看重風險因素：${getCheckVal('q9')}</li>
-                    <li>想了解的資訊：${getCheckVal('q7')}</li>
-                    <li>同意接收專屬報告：${getSingleVal('q10')}</li>
-                    ${formData.get('q10') === '好' ? `
-                        <li>客戶性別：${getSingleVal('client_gender')}</li>
-                        <li>出生日期：${getSingleVal('client_birthday')}</li>
-                        <li>行動電話：${getSingleVal('client_mobile')}</li>
-                        <li>電子信箱：${getSingleVal('client_email')}</li>
-                        <li>個資授權：${formData.get('client_legal_agree') === '同意' ? '✅ 已閱讀並完全同意條款' : '❌ 未勾選同意'}</li>
-                    ` : ''}
-                </ul>
-            </div>
-        `;
-
-        const now = new Date();
-        const timeStr = now.toLocaleString('zh-TW');
-
-        submitBtn.innerText = "⏳ 正在同步儲存至雲端資料庫...";
-        submitBtn.disabled = true;
-
-        const recordData = {
-            timestamp: now.getTime(),
-            date: timeStr,
-            userIdentity: name,
-            salesperson: sales,
-            gapSummary: gapStr,
-            htmlContent: outHtml
-        };
-
-        try {
-            await saveRecordToServer(recordData);
-        } catch (cloudError) {
-            console.error("雲端同步出現異常：", cloudError);
-        }
-
-        document.getElementById('reportDate').innerText = "客戶姓名：" + name + " | 服務業務員：" + sales + " | 產生時間：" + timeStr;
-        document.getElementById('resultContent').innerHTML = outHtml;
-        document.getElementById('resultArea').style.display = 'block';
-        document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth' });
-
-        submitBtn.innerText = originalSubmitText;
-        submitBtn.disabled = false;
-
-        try {
-            if(document.getElementById('historyArea').style.display === 'block') { renderRecords(); }
-        } catch (e) {
-            console.error(e);
-        }
-    });
-
-    // --- 📥 單次下載按鈕（全面升級為「獨立外側容器外拍法」，完美解決半白與切斷 Bug） ---
-    document.getElementById('downloadPdfBtn').addEventListener('click', function() {
-        const originalBtnText = this.innerText;
-        this.innerText = "⏳ 報告下載中...";
-        this.disabled = true;
-
-        // 1. 備份當前捲動高度
-        const currentScrollY = window.scrollY;
-
-        // 2. 獲取要輸出的原始報告資料與時間
-        const reportTitleText = document.querySelector('#pdfContent h2').innerText;
-        const reportMetaText = document.getElementById('reportDate').innerText;
-        const reportBodyHtml = document.getElementById('resultContent').innerHTML;
-
-        // 3. 建立一個完全獨立、掛在 Body 最底層、移出螢幕的可視臨時容器
-        // 這能徹底脫離 .container 的圓角、陰影、相對定位以及網頁捲軸的切割干擾！
-        let tempDiv = document.createElement('div');
-        tempDiv.style.position = 'absolute';
-        tempDiv.style.left = '-9999px';
-        tempDiv.style.top = '0';
-        tempDiv.style.width = '740px'; // 最佳 A4 紙張像素對應寬度
-        tempDiv.style.background = '#ffffff';
-        
-        // 4. 重新注入乾淨且無外部干擾的排版樣式
-        tempDiv.innerHTML = `
-            <div style="padding: 25px; font-family: 'Helvetica Neue', Helvetica, Arial, 'PingFang TC', '微軟正黑體', sans-serif; box-sizing: border-box; background: #ffffff;">
-                <h2 style="text-align: center; color: #2c3e50; border-bottom: 2px solid #4A90E2; padding-bottom: 10px; margin-top: 0; margin-bottom: 15px; font-size: 22px;">${reportTitleText}</h2>
-                <p style="text-align: right; color: #7f8c8d; font-size: 13px; margin-bottom: 15px;">${reportMetaText}</p>
-                <div style="font-size: 15px; line-height: 1.6;">${reportBodyHtml}</div>
-            </div>
-        `;
-        document.body.appendChild(tempDiv);
-
-        let cleanName = (currentReportCustomerName || "客戶").replace(/[\/\\\:\*\?訂單\"\<\>\|]/g, '_');
-
-        // 5. 調整上下邊距為 12mm，提供更多垂直緩衝空間，使其能極致服貼於 A4 紙張
-        const opt = {
-            margin:       [12, 15, 12, 15],
-            filename:     `${cleanName}.pdf`, 
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { 
-                scale: 2, 
-                useCORS: true, 
-                scrollY: 0, 
-                scrollX: 0 
-            }, 
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak:    { mode: ['css', 'legacy'] } 
-        };
-
-        // 6. 對獨立外側容器進行拍照輸出，完成後立刻銷毀臨時容器並復原狀態
-        html2pdf().set(opt).from(tempDiv).save().then(() => {
-            document.body.removeChild(tempDiv);
-            window.scrollTo(0, currentScrollY); // 貼心恢復原捲動位置
-            this.innerText = originalBtnText;
-            this.disabled = false;
-        }).catch((err) => {
-            console.error("PDF下載錯誤:", err);
-            if (document.body.contains(tempDiv)) {
-                document.body.removeChild(tempDiv);
-            }
-            window.scrollTo(0, currentScrollY);
-            this.innerText = originalBtnText;
-            this.disabled = false;
-        });
-    });
-
-    // --- 🎯 第 10 題：同意提供與否的動態欄位控制切換邏輯 ---
-    document.querySelectorAll('input[name="q10"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            const section = document.getElementById('personalInfoSection');
-            const mobile = document.getElementById('clientMobile');
-            const agree = document.getElementById('clientLegalAgree');
-            
-            if (this.value === '好') {
-                section.style.display = 'block';
-                mobile.required = true;
-                agree.required = true;
-            } else {
-                section.style.display = 'none';
-                mobile.required = false;
-                agree.required = false;
-                
-                mobile.value = '';
-                document.getElementById('clientEmail').value = '';
-                document.getElementById('clientBirthday').value = '';
-                agree.checked = false;
-                document.querySelectorAll('input[name="client_gender"]').forEach(g => g.checked = false);
-            }
-        });
-    });
-</script>
-</body>
-</html>
+                <style>
+                    .print-wrapper { font-family: "Helvetica Neue", Helvetica, Arial, "PingFang TC", "微軟正黑體", sans-serif; color: #333333; background: #ffffff; }
+                    .print-header { text-align: center; border-bottom: 3px solid #4A90E2; padding-bottom: 10px; margin-bottom: 25px; }
+                    .print-header h2 { margin: 0; color: #2c3e50; font-size: 24px; }
+                    .print-meta { text-align: right; color: #7f8c8d; font-size: 13px; margin-top: 10px; }
+                    .result-category { margin-bottom: 20px; background: #fdfdfd; padding: 15px; border-radius: 6px; border: 1px solid #e1e4e8; border-left: 5px solid #4A90E2; page-break-inside: avoid; break-inside: avoid; }
+                    .result-category:last-child { margin-bottom: 0; } /* 🎯 消除末尾外距，防止多餘空白頁 */
+                    .result-category h3 { margin: 0 0 10px 0; color: #0056b3; border-bottom: 1px solid #e1e4e8; padding-bottom: 8px; font-size: 16px; }
+                    .result-category ul { margin: 0; padding-left: 20px; }
+                    .result-category li { margin-bottom: 6px; font-size: 14px; line-height: 1.6; list-style-type: square; }
+                    .highlight-calc { color: #d35400; font-weight: bold; }
+                    .gap-alert { color: #e74c3c; font-weight: bold; font-size: 14px; background: #fdf
