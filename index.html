@@ -975,10 +975,14 @@
             htmlContent: outHtml
         };
 
-        // 核心上傳
-        await saveRecordToServer(recordData);
+        // 核心上傳 (使用 try...catch 保護，確保即使雲端對接出現小瑕疵，也絕不卡死本機報告的呈現)
+        try {
+            await saveRecordToServer(recordData);
+        } catch (cloudError) {
+            console.error("雲端同步有小遺憾，但不影響報告產生：", cloudError);
+        }
 
-        // 本地立即呈現
+        // 本地立即呈現 (保證一定會跑出來)
         document.getElementById('reportDate').innerText = "客戶姓名：" + name + " | 服務業務員：" + sales + " | 產生時間：" + timeStr;
         document.getElementById('resultContent').innerHTML = outHtml;
         document.getElementById('resultArea').style.display = 'block';
@@ -988,8 +992,12 @@
         submitBtn.innerText = originalSubmitText;
         submitBtn.disabled = false;
 
-        // 如果後台面版開著，立刻更新列表
-        if(document.getElementById('historyArea').style.display === 'block') { renderRecords(); }
+        // 如果後台面版開著，立刻更新列表 (同樣加上 try 保護防錯)
+        try {
+            if(document.getElementById('historyArea').style.display === 'block') { renderRecords(); }
+        } catch (e) {
+            console.error("後台面板更新略有延遲：", e);
+        }
     });
 
     // --- 單次下載按鈕 （客戶姓名為檔名）---
