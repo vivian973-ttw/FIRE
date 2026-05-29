@@ -261,7 +261,7 @@
             padding: 12px;
             border-radius: 5px;
             border: 1px solid #eee;
-            page-break-inside: avoid;
+            page-break-inside: avoid; /* 防止單個區塊內部被攔腰截斷 */
         }
         .result-category h3 {
             margin: 0 0 8px 0;
@@ -502,7 +502,7 @@
                 
                 <div style="font-size: 0.82em; color: #555; background: #ffffff; padding: 12px; border: 1px solid #ddd; border-radius: 4px; line-height: 1.5; max-height: 120px; overflow-y: auto; margin-bottom: 12px;">
                     <strong style="color:#333;">🔒 個人資料保護法告知暨授權同意書</strong><br>
-                    一、依個人資料保護法規定，本人業經告知，本人個人資料於授權期間內供永達保險經紀人股份有限公司及其所屬保險業務代表，提供保險相關訊息、解釋商品內容等，而於上述目的消失、期限屆滿或依相關規定，予以刪除、停止處理或利用。<br>
+                    一、依個人資料保護法規定，本人業經告知，本人個人資料於授權期間內供永達保險經紀人股份有限公司及其所屬保險業務代表，提供保險相關訊息、解釋商品內容等，而於上述目的消失、期限屆滿或依相關規定，予以刪除、停止處理 or 利用。<br>
                     二、依個人資料保護法第三條規定，得以書面申請查詢、閱覽、製給複製本、補充、更正、刪除、停止蒐集處理或利用本人之個人資料。<br>
                     三、本人同意提供個人資料，供永達保險經紀人股份有限公司為上述目的範圍內之搜集、處理及利用。
                 </div>
@@ -782,7 +782,7 @@
         }
     };
 
-    // --- 批次下載功能（原生字串解析防空白 & 客戶姓名檔名版） ---
+    // --- 批次下載功能（全面修正：防止滾動截斷與空白頁） ---
     document.getElementById('batchDownloadBtn').addEventListener('click', async function() {
         const checked = document.querySelectorAll('.history-checkbox:checked');
         if (checked.length === 0) {
@@ -811,7 +811,7 @@
             
             let htmlString = `
                 <div style="padding: 15px; background: #ffffff; font-family: 'Helvetica Neue', Helvetica, Arial, 'PingFang TC', '微軟正黑體', sans-serif;">
-                    <h2 style="text-align: center; color: #2c3e50; border-bottom: 2px solid #4A90E2; padding-bottom: 10px; margin-top: 0; margin-bottom: 15px; font-size: 20px;">📊 專屬退休規劃 analysis 報告</h2>
+                    <h2 style="text-align: center; color: #2c3e50; border-bottom: 2px solid #4A90E2; padding-bottom: 10px; margin-top: 0; margin-bottom: 15px; font-size: 20px;">📊 專屬退休規劃分析報告</h2>
                     <p style="text-align: right; color: #7f8c8d; font-size: 12px; margin-bottom: 10px;">客戶姓名：${target.userIdentity} | 服務業務員：${target.salesperson} | 產生時間：${target.date}</p>
                     <div>${target.htmlContent}</div>
                 </div>
@@ -821,9 +821,9 @@
                 margin:       [12, 12, 12, 12],
                 filename:     `${cleanName}.pdf`, 
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, scrollY: 0, scrollX: 0 },
+                html2canvas:  { scale: 2, useCORS: true }, 
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+                pagebreak:    { mode: ['css', 'legacy'] } 
             };
 
             await new Promise((resolve) => {
@@ -975,14 +975,14 @@
             htmlContent: outHtml
         };
 
-        // 核心上傳 (使用 try...catch 保護，確保即使雲端對接出現小瑕疵，也絕不卡死本機報告的呈現)
+        // 核心上傳
         try {
             await saveRecordToServer(recordData);
         } catch (cloudError) {
-            console.error("雲端同步有小遺憾，但不影響報告產生：", cloudError);
+            console.error("雲端同步出現異常，但不影響本地報告產生：", cloudError);
         }
 
-        // 本地立即呈現 (保證一定會跑出來)
+        // 本地立即呈現
         document.getElementById('reportDate').innerText = "客戶姓名：" + name + " | 服務業務員：" + sales + " | 產生時間：" + timeStr;
         document.getElementById('resultContent').innerHTML = outHtml;
         document.getElementById('resultArea').style.display = 'block';
@@ -992,7 +992,7 @@
         submitBtn.innerText = originalSubmitText;
         submitBtn.disabled = false;
 
-        // 如果後台面版開著，立刻更新列表 (同樣加上 try 保護防錯)
+        // 如果後台面版開著，立刻更新列表
         try {
             if(document.getElementById('historyArea').style.display === 'block') { renderRecords(); }
         } catch (e) {
@@ -1000,7 +1000,7 @@
         }
     });
 
-    // --- 單次下載按鈕 （客戶姓名為檔名）---
+    // --- 單次下載按鈕（全面修正：防止捲動截斷與空白頁） ---
     document.getElementById('downloadPdfBtn').addEventListener('click', function() {
         const element = document.getElementById('pdfContent');
         this.innerText = "⏳ 報告下載中...";
@@ -1012,9 +1012,9 @@
             margin:       [12, 12, 12, 12],
             filename:     `${cleanName}.pdf`, 
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true, scrollY: 0, scrollX: 0 },
+            html2canvas:  { scale: 2, useCORS: true }, 
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+            pagebreak:    { mode: ['css', 'legacy'] } 
         };
 
         html2pdf().set(opt).from(element).save().then(() => {
