@@ -160,7 +160,7 @@
             margin-bottom: 8px;
             cursor: pointer;
         }
-        input[type="text"], input[type="number"], select {
+        input[type="text"], input[type="number"], input[type="date"], select {
             width: 100%;
             max-width: 150px;
             padding: 8px;
@@ -223,11 +223,11 @@
         button[type="submit"]:hover, .btn-pdf:hover {
             background-color: #357ABD;
         }
-        .btn-pdf {
+        .container .btn-pdf {
             background-color: #27ae60;
             margin-top: 15px;
         }
-        .btn-pdf:hover {
+        .container .btn-pdf:hover {
             background-color: #219653;
         }
         
@@ -473,7 +473,42 @@
             <div class="question">
                 <p>10. 我們將提供一份專屬您的退休規劃的資訊給您參考運用？</p>
                 <label><input type="radio" name="q10" value="好"> 好，同意提供</label>
-                <label><input type="radio" name="q10" value="不好"> 不好，暫不需要</label>
+                <label><input type="radio" name="q10" value="不好" checked> 不好，暫不需要</label>
+            </div>
+
+            <div id="personalInfoSection" style="display: none; margin-top: 15px; padding: 18px; background-color: #fafbfe; border: 1px dashed var(--primary-color); border-radius: 6px;">
+                <p style="font-weight: bold; color: #2c3e50; margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 5px; font-size: 0.95em;">✍️ 請填寫您的基本聯絡資料：</p>
+                <div class="inline-inputs" style="margin-bottom: 12px;">
+                    <div>
+                        <label>客戶性別：</label>
+                        <label><input type="radio" name="client_gender" value="男"> 男</label>
+                        <label><input type="radio" name="client_gender" value="女"> 女</label>
+                    </div>
+                    <div>
+                        <label style="margin-left: 15px;">出生日期：</label>
+                        <input type="date" name="client_birthday" id="clientBirthday" style="max-width: 180px;">
+                    </div>
+                </div>
+                <div class="inline-inputs" style="margin-bottom: 15px;">
+                    <div>
+                        <label>行動電話：<span style="color:red;">*</span></label>
+                        <input type="text" name="client_mobile" id="clientMobile" placeholder="例如：0912345678" style="max-width: 180px;">
+                    </div>
+                    <div>
+                        <label style="margin-left: 15px;">電子信箱：</label>
+                        <input type="text" name="client_email" id="clientEmail" placeholder="example@gmail.com" style="max-width: 220px;">
+                    </div>
+                </div>
+                
+                <div style="font-size: 0.82em; color: #555; background: #ffffff; padding: 12px; border: 1px solid #ddd; border-radius: 4px; line-height: 1.5; max-height: 120px; overflow-y: auto; margin-bottom: 12px;">
+                    <strong style="color:#333;">🔒 個人資料保護法告知暨授權同意書</strong><br>
+                    一、依個人資料保護法規定，本人業經告知，本人個人資料於授權期間內供永達保險經紀人股份有限公司及其所屬保險業務代表，提供保險相關訊息、解釋商品內容等，而於上述目的消失、期限屆滿或依相關規定，予以刪除、停止處理或利用。<br>
+                    二、依個人資料保護法第三條規定，得以書面申請查詢、閱覽、製給複製本、補充、更正、刪除、停止蒐集處理或利用本人之個人資料。<br>
+                    三、本人同意提供個人資料，供永達保險經紀人股份有限公司為上述目的範圍內之搜集、處理及利用。
+                </div>
+                <label style="font-weight: bold; color: #d32f2f; margin-bottom: 0;">
+                    <input type="checkbox" id="clientLegalAgree" name="client_legal_agree" value="同意"> 我已閱讀並完全同意上述個資保護法條款 <span style="color:red;">*</span>
+                </label>
             </div>
         </div>
 
@@ -776,7 +811,7 @@
             
             let htmlString = `
                 <div style="padding: 15px; background: #ffffff; font-family: 'Helvetica Neue', Helvetica, Arial, 'PingFang TC', '微軟正黑體', sans-serif;">
-                    <h2 style="text-align: center; color: #2c3e50; border-bottom: 2px solid #4A90E2; padding-bottom: 10px; margin-top: 0; margin-bottom: 15px; font-size: 20px;">📊 專屬退休規劃分析報告</h2>
+                    <h2 style="text-align: center; color: #2c3e50; border-bottom: 2px solid #4A90E2; padding-bottom: 10px; margin-top: 0; margin-bottom: 15px; font-size: 20px;">📊 專屬退休規劃 analysis 報告</h2>
                     <p style="text-align: right; color: #7f8c8d; font-size: 12px; margin-bottom: 10px;">客戶姓名：${target.userIdentity} | 服務業務員：${target.salesperson} | 產生時間：${target.date}</p>
                     <div>${target.htmlContent}</div>
                 </div>
@@ -913,6 +948,13 @@
                     <li>看重風險因素：${getCheckVal('q9')}</li>
                     <li>想了解的資訊：${getCheckVal('q7')}</li>
                     <li>同意接收專屬報告：${getSingleVal('q10')}</li>
+                    ${formData.get('q10') === '好' ? `
+                        <li>客戶性別：${getSingleVal('client_gender')}</li>
+                        <li>出生日期：${getSingleVal('client_birthday')}</li>
+                        <li>行動電話：${getSingleVal('client_mobile')}</li>
+                        <li>電子信箱：${getSingleVal('client_email')}</li>
+                        <li>個資授權：${formData.get('client_legal_agree') === '同意' ? '✅ 已閱讀並完全同意條款' : '❌ 未勾選同意'}</li>
+                    ` : ''}
                 </ul>
             </div>
         `;
@@ -970,6 +1012,32 @@
         html2pdf().set(opt).from(element).save().then(() => {
             this.innerText = "📥 下載此報告為 PDF";
             this.disabled = false;
+        });
+    });
+
+    // --- 🎯 第 10 題：同意提供與否的動態欄位控制切換邏輯 ---
+    document.querySelectorAll('input[name="q10"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const section = document.getElementById('personalInfoSection');
+            const mobile = document.getElementById('clientMobile');
+            const agree = document.getElementById('clientLegalAgree');
+            
+            if (this.value === '好') {
+                section.style.display = 'block';
+                mobile.required = true;
+                agree.required = true;
+            } else {
+                section.style.display = 'none';
+                mobile.required = false;
+                agree.required = false;
+                
+                // 防呆：切換回「不需要」時自動清空該隱藏區塊內的所有輸入，避免殘留誤傳
+                mobile.value = '';
+                document.getElementById('clientEmail').value = '';
+                document.getElementById('clientBirthday').value = '';
+                agree.checked = false;
+                document.querySelectorAll('input[name="client_gender"]').forEach(g => g.checked = false);
+            }
         });
     });
 </script>
