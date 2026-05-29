@@ -261,7 +261,7 @@
             padding: 12px;
             border-radius: 5px;
             border: 1px solid #eee;
-            page-break-inside: avoid; /* 防止單個區塊內部被攔腰截斷 */
+            page-break-inside: avoid; /* 防止單個區塊內部被截斷 */
         }
         .result-category h3 {
             margin: 0 0 8px 0;
@@ -400,7 +400,7 @@
             </div>
 
             <div class="question">
-                <p>8. 依您目前的經濟能力，您每月可提撥多少用來儲蓄或投資？</p>
+                <p>8. 依您目前的經濟能力，您每月可提撥多少用來儲蓄 or 投資？</p>
                 <label><input type="radio" name="q8" value="5,000元"> 5,000元</label>
                 <label><input type="radio" name="q8" value="10,000元"> 10,000元</label>
                 <label><input type="radio" name="q8" value="20,000元"> 20,000元</label>
@@ -533,7 +533,7 @@
     let currentRole = ''; // user, sales, admin
     let isAdminLoggedIn = false;
     let currentReportCustomerName = ''; 
-    let currentRecords = []; // 快取從雲端撈下來的歷史資料
+    let currentRecords = []; 
 
     // --- 子女欄位增減 ---
     document.getElementById('addChildBtn').addEventListener('click', function() {
@@ -577,7 +577,6 @@
     }
 
     async function saveRecordToServer(record) {
-        // 先寫入本機備份防遺失
         let records = JSON.parse(localStorage.getItem('retirementRecords')) || [];
         records.push(record);
         localStorage.setItem('retirementRecords', JSON.stringify(records));
@@ -597,7 +596,6 @@
     }
 
     async function deleteRecordsFromServer(timestamps) {
-        // 同步刪除本機備份
         let records = JSON.parse(localStorage.getItem('retirementRecords')) || [];
         records = records.filter(r => !timestamps.includes(r.timestamp));
         localStorage.setItem('retirementRecords', JSON.stringify(records));
@@ -695,7 +693,6 @@
         }
     });
 
-    // --- 查詢觸發事件 ---
     document.getElementById('userSearchBtn').addEventListener('click', () => renderRecords());
     document.getElementById('salesSearchBtn').addEventListener('click', () => {
         const key = document.getElementById('searchSalesKey').value.trim();
@@ -712,7 +709,6 @@
         const listContainer = document.getElementById('historyList');
         listContainer.innerHTML = "⏳ 正在從雲端載入最新資料...";
 
-        // 從雲端抓取全球最新即時資料
         currentRecords = await fetchRecordsFromServer();
 
         if (currentRecords.length === 0) {
@@ -782,7 +778,7 @@
         }
     };
 
-    // --- 批次下載功能（全面修正：防止滾動截斷與空白頁） ---
+    // --- 📥 批次下載功能（黃金防空白與錯位機制） ---
     document.getElementById('batchDownloadBtn').addEventListener('click', async function() {
         const checked = document.querySelectorAll('.history-checkbox:checked');
         if (checked.length === 0) {
@@ -799,6 +795,10 @@
         const originalBtnText = this.innerText;
         this.disabled = true;
 
+        // 1. 記錄目前的捲動高度，並強制捲動至最頂端，徹底阻斷空白 PDF 的產生
+        const currentScrollY = window.scrollY;
+        window.scrollTo(0, 0);
+
         for (let i = 0; i < checked.length; i++) {
             let cb = checked[i];
             this.innerText = `⏳ 正在處理第 ${i + 1} / ${checked.length} 份報告...`;
@@ -809,16 +809,25 @@
 
             let cleanName = (target.userIdentity || "客戶").replace(/[\/\\\:\*\?訂單\"\<\>\|]/g, '_');
             
-            let htmlString = `
-                <div style="padding: 15px; background: #ffffff; font-family: 'Helvetica Neue', Helvetica, Arial, 'PingFang TC', '微軟正黑體', sans-serif;">
+            // 2. 建立一個真實存在於 DOM 樹中的臨時可視容器（移到外側螢幕），確保高清晰拍照與高度計算正確
+            let tempDiv = document.createElement('div');
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.left = '-9999px'; 
+            tempDiv.style.top = '0';
+            tempDiv.style.width = '700px'; 
+            tempDiv.style.background = '#ffffff';
+            
+            tempDiv.innerHTML = `
+                <div style="padding: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, 'PingFang TC', '微軟正黑體', sans-serif;">
                     <h2 style="text-align: center; color: #2c3e50; border-bottom: 2px solid #4A90E2; padding-bottom: 10px; margin-top: 0; margin-bottom: 15px; font-size: 20px;">📊 專屬退休規劃分析報告</h2>
                     <p style="text-align: right; color: #7f8c8d; font-size: 12px; margin-bottom: 10px;">客戶姓名：${target.userIdentity} | 服務業務員：${target.salesperson} | 產生時間：${target.date}</p>
                     <div>${target.htmlContent}</div>
                 </div>
             `;
+            document.body.appendChild(tempDiv);
 
             const opt = {
-                margin:       [12, 12, 12, 12],
+                margin:       [15, 15, 15, 15],
                 filename:     `${cleanName}.pdf`, 
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { scale: 2, useCORS: true }, 
@@ -827,18 +836,22 @@
             };
 
             await new Promise((resolve) => {
-                html2pdf().set(opt).from(htmlString).save().then(() => {
-                    setTimeout(() => { resolve(); }, 1500); 
+                html2pdf().set(opt).from(tempDiv).save().then(() => {
+                    document.body.removeChild(tempDiv); // 下載完將臨時容器立刻移出
+                    setTimeout(() => { resolve(); }, 1200); 
                 }).catch((err) => {
                     console.error("PDF下載出錯:", err);
-                    setTimeout(() => { resolve(); }, 1500);
+                    if(document.body.contains(tempDiv)) document.body.removeChild(tempDiv);
+                    setTimeout(() => { resolve(); }, 1200);
                 });
             });
         }
 
+        // 3. 全數處理完畢後，悄悄把畫面恢復到使用者剛才的位置
+        window.scrollTo(0, currentScrollY);
         this.innerText = originalBtnText;
         this.disabled = false;
-        alert('🎉 批次下載排程處理完畢！\n若是發現數量不足，請確認是否有允許瀏覽器下載多檔案的權限喔！');
+        alert('🎉 批次下載排程處理完畢！');
     });
 
     // --- 批次刪除（同步雲端刪除） ---
@@ -856,7 +869,7 @@
             let targetTimestamps = Array.from(checked).map(c => parseInt(c.value));
             
             await deleteRecordsFromServer(targetTimestamps);
-            await renderRecords(); // 重新整理畫面
+            await renderRecords(); 
 
             this.innerText = originalBtnText;
             this.disabled = false;
@@ -962,7 +975,6 @@
         const now = new Date();
         const timeStr = now.toLocaleString('zh-TW');
 
-        // 改為載入中狀態並進行雲端上傳
         submitBtn.innerText = "⏳ 正在同步儲存至雲端資料庫...";
         submitBtn.disabled = true;
 
@@ -975,33 +987,35 @@
             htmlContent: outHtml
         };
 
-        // 核心上傳
         try {
             await saveRecordToServer(recordData);
         } catch (cloudError) {
-            console.error("雲端同步出現異常，但不影響本地報告產生：", cloudError);
+            console.error("雲端同步出現異常：", cloudError);
         }
 
-        // 本地立即呈現
         document.getElementById('reportDate').innerText = "客戶姓名：" + name + " | 服務業務員：" + sales + " | 產生時間：" + timeStr;
         document.getElementById('resultContent').innerHTML = outHtml;
         document.getElementById('resultArea').style.display = 'block';
         document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth' });
 
-        // 復原按鈕
         submitBtn.innerText = originalSubmitText;
         submitBtn.disabled = false;
 
-        // 如果後台面版開著，立刻更新列表
         try {
             if(document.getElementById('historyArea').style.display === 'block') { renderRecords(); }
         } catch (e) {
-            console.error("後台面板更新略有延遲：", e);
+            console.error(e);
         }
     });
 
-    // --- 單次下載按鈕（全面修正：防止捲動截斷與空白頁） ---
+    // --- 📥 單次下載按鈕（黃金防空白與自動恢復位置機制） ---
     document.getElementById('downloadPdfBtn').addEventListener('click', function() {
+        // 1. 先悄悄備份目前的捲動高度
+        const currentScrollY = window.scrollY;
+        
+        // 2. 強制把視窗捲動到最頂端（關鍵：防止 html2canvas 拍到空白天空）
+        window.scrollTo(0, 0);
+
         const element = document.getElementById('pdfContent');
         this.innerText = "⏳ 報告下載中...";
         this.disabled = true;
@@ -1009,7 +1023,7 @@
         let cleanName = (currentReportCustomerName || "客戶").replace(/[\/\\\:\*\?訂單\"\<\>\|]/g, '_');
 
         const opt = {
-            margin:       [12, 12, 12, 12],
+            margin:       [15, 15, 15, 15],
             filename:     `${cleanName}.pdf`, 
             image:        { type: 'jpeg', quality: 0.98 },
             html2canvas:  { scale: 2, useCORS: true }, 
@@ -1020,6 +1034,13 @@
         html2pdf().set(opt).from(element).save().then(() => {
             this.innerText = "📥 下載此報告為 PDF";
             this.disabled = false;
+            // 3. 下載完成，自動貼心地幫使用者捲動回剛才看報告的地方
+            window.scrollTo(0, currentScrollY);
+        }).catch((err) => {
+            console.error("PDF下載錯誤:", err);
+            this.innerText = "📥 下載此報告為 PDF";
+            this.disabled = false;
+            window.scrollTo(0, currentScrollY);
         });
     });
 
@@ -1039,7 +1060,6 @@
                 mobile.required = false;
                 agree.required = false;
                 
-                // 防呆：切換回「不需要」時自動清空該隱藏區塊內的所有輸入，避免殘留誤傳
                 mobile.value = '';
                 document.getElementById('clientEmail').value = '';
                 document.getElementById('clientBirthday').value = '';
