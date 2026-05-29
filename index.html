@@ -262,6 +262,7 @@
             border-radius: 5px;
             border: 1px solid #eee;
             page-break-inside: avoid; /* 防止單個區塊內部被截斷 */
+            break-inside: avoid;
         }
         .result-category h3 {
             margin: 0 0 8px 0;
@@ -721,7 +722,7 @@
         if (currentRole === 'user') {
             const userKey = document.getElementById('searchUserKey').value.trim().toLowerCase();
             if (!userKey) {
-                listContainer.innerHTML = "請輸入客戶姓名再點擊查詢。";
+                listContainer.innerHTML = "請輸入客戶姓名再點擊查詢. ";
                 return;
             }
             filtered = currentRecords.filter(r => r.userIdentity && r.userIdentity.trim().toLowerCase() === userKey);
@@ -795,7 +796,6 @@
         const originalBtnText = this.innerText;
         this.disabled = true;
 
-        // 1. 記錄目前的捲動高度，並強制捲動至最頂端，徹底阻斷空白 PDF 的產生
         const currentScrollY = window.scrollY;
         window.scrollTo(0, 0);
 
@@ -809,12 +809,11 @@
 
             let cleanName = (target.userIdentity || "客戶").replace(/[\/\\\:\*\?訂單\"\<\>\|]/g, '_');
             
-            // 2. 建立一個真實存在於 DOM 樹中的臨時可視容器（移到外側螢幕），確保高清晰拍照與高度計算正確
             let tempDiv = document.createElement('div');
             tempDiv.style.position = 'absolute';
             tempDiv.style.left = '-9999px'; 
             tempDiv.style.top = '0';
-            tempDiv.style.width = '700px'; 
+            tempDiv.style.width = '740px'; 
             tempDiv.style.background = '#ffffff';
             
             tempDiv.innerHTML = `
@@ -827,27 +826,26 @@
             document.body.appendChild(tempDiv);
 
             const opt = {
-                margin:       [15, 15, 15, 15],
+                margin:       [10, 15, 10, 15],
                 filename:     `${cleanName}.pdf`, 
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true }, 
+                html2canvas:  { scale: 2, useCORS: true, scrollY: 0, scrollX: 0 }, 
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
                 pagebreak:    { mode: ['css', 'legacy'] } 
             };
 
             await new Promise((resolve) => {
                 html2pdf().set(opt).from(tempDiv).save().then(() => {
-                    document.body.removeChild(tempDiv); // 下載完將臨時容器立刻移出
+                    document.body.removeChild(tempDiv); 
                     setTimeout(() => { resolve(); }, 1200); 
                 }).catch((err) => {
-                    console.error("PDF下載出錯:", err);
+                    print(err);
                     if(document.body.contains(tempDiv)) document.body.removeChild(tempDiv);
                     setTimeout(() => { resolve(); }, 1200);
                 });
             });
         }
 
-        // 3. 全數處理完畢後，悄悄把畫面恢復到使用者剛才的位置
         window.scrollTo(0, currentScrollY);
         this.innerText = originalBtnText;
         this.disabled = false;
@@ -1008,39 +1006,70 @@
         }
     });
 
-    // --- 📥 單次下載按鈕（黃金防空白與自動恢復位置機制） ---
+    // --- 📥 單次下載按鈕（全面升級為「獨立外側容器外拍法」，完美解決半白與切斷 Bug） ---
     document.getElementById('downloadPdfBtn').addEventListener('click', function() {
-        // 1. 先悄悄備份目前的捲動高度
-        const currentScrollY = window.scrollY;
-        
-        // 2. 強制把視窗捲動到最頂端（關鍵：防止 html2canvas 拍到空白天空）
-        window.scrollTo(0, 0);
-
-        const element = document.getElementById('pdfContent');
+        const originalBtnText = this.innerText;
         this.innerText = "⏳ 報告下載中...";
         this.disabled = true;
 
+        // 1. 備份當前捲動高度
+        const currentScrollY = window.scrollY;
+
+        // 2. 獲取要輸出的原始報告資料與時間
+        const reportTitleText = document.querySelector('#pdfContent h2').innerText;
+        const reportMetaText = document.getElementById('reportDate').innerText;
+        const reportBodyHtml = document.getElementById('resultContent').innerHTML;
+
+        // 3. 建立一個完全獨立、掛在 Body 最底層、移出螢幕的可視臨時容器
+        // 這能徹底脫離 .container 的圓角、陰影、相對定位以及網頁捲軸的切割干擾！
+        let tempDiv = document.createElement('div');
+        tempDiv.style.position = 'absolute';
+        tempDiv.style.left = '-9999px';
+        tempDiv.style.top = '0';
+        tempDiv.style.width = '740px'; // 最佳 A4 紙張像素對應寬度
+        tempDiv.style.background = '#ffffff';
+        
+        // 4. 重新注入乾淨且無外部干擾的排版樣式
+        tempDiv.innerHTML = `
+            <div style="padding: 25px; font-family: 'Helvetica Neue', Helvetica, Arial, 'PingFang TC', '微軟正黑體', sans-serif; box-sizing: border-box; background: #ffffff;">
+                <h2 style="text-align: center; color: #2c3e50; border-bottom: 2px solid #4A90E2; padding-bottom: 10px; margin-top: 0; margin-bottom: 15px; font-size: 22px;">${reportTitleText}</h2>
+                <p style="text-align: right; color: #7f8c8d; font-size: 13px; margin-bottom: 15px;">${reportMetaText}</p>
+                <div style="font-size: 15px; line-height: 1.6;">${reportBodyHtml}</div>
+            </div>
+        `;
+        document.body.appendChild(tempDiv);
+
         let cleanName = (currentReportCustomerName || "客戶").replace(/[\/\\\:\*\?訂單\"\<\>\|]/g, '_');
 
+        // 5. 調整上下邊距為 12mm，提供更多垂直緩衝空間，使其能極致服貼於 A4 紙張
         const opt = {
-            margin:       [15, 15, 15, 15],
+            margin:       [12, 15, 12, 15],
             filename:     `${cleanName}.pdf`, 
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true }, 
+            html2canvas:  { 
+                scale: 2, 
+                useCORS: true, 
+                scrollY: 0, 
+                scrollX: 0 
+            }, 
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
             pagebreak:    { mode: ['css', 'legacy'] } 
         };
 
-        html2pdf().set(opt).from(element).save().then(() => {
-            this.innerText = "📥 下載此報告為 PDF";
+        // 6. 對獨立外側容器進行拍照輸出，完成後立刻銷毀臨時容器並復原狀態
+        html2pdf().set(opt).from(tempDiv).save().then(() => {
+            document.body.removeChild(tempDiv);
+            window.scrollTo(0, currentScrollY); // 貼心恢復原捲動位置
+            this.innerText = originalBtnText;
             this.disabled = false;
-            // 3. 下載完成，自動貼心地幫使用者捲動回剛才看報告的地方
-            window.scrollTo(0, currentScrollY);
         }).catch((err) => {
             console.error("PDF下載錯誤:", err);
-            this.innerText = "📥 下載此報告為 PDF";
-            this.disabled = false;
+            if (document.body.contains(tempDiv)) {
+                document.body.removeChild(tempDiv);
+            }
             window.scrollTo(0, currentScrollY);
+            this.innerText = originalBtnText;
+            this.disabled = false;
         });
     });
 
